@@ -1,0 +1,211 @@
+/* Import Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* Font Families */
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* ERP Pure Black/Dark Theme HSL */
+  --background: 0 0% 0%; /* #000000 */
+  --foreground: 0 0% 100%; /* #FFFFFF */
+  
+  --card: 0 0% 4.3%; /* #0B0B0B */
+  --card-foreground: 0 0% 100%;
+  
+  --popover: 0 0% 4.3%;
+  --popover-foreground: 0 0% 100%;
+  
+  --primary: 262 83% 58%; /* #7C3AED */
+  --primary-foreground: 0 0% 100%;
+  
+  --secondary: 0 0% 6.7%; /* #111111 */
+  --secondary-foreground: 0 0% 100%;
+  
+  --muted: 0 0% 6.7%;
+  --muted-foreground: 215 16% 65%; /* #9CA3AF */
+  
+  --accent: 262 83% 58%;
+  --accent-foreground: 0 0% 100%;
+  
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142.1 76.2% 36.3%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  
+  --border: 0 0% 14.9%; /* #262626 */
+  --input: 0 0% 6.7%;
+  --ring: 262 83% 58%;
+  
+  --radius: 4px; /* Industrial clean corners (no round pills) */
+
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+
+  --transition-fast: 0.1s ease;
+  --transition-normal: 0.15s ease;
+}
+
+/* Global Resets */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: #000000;
+  color: #ffffff;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+/* ERP Layout Utilities */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  background-color: #000000;
+}
+
+.main-content {
+  flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+  min-width: 0;
+  background-color: #000000;
+}
+
+/* Flat Card styling - Notion/ERP style */
+.card {
+  background-color: #0b0b0b;
+  border: 1px solid #262626;
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  box-shadow: none;
+  transition: border-color var(--transition-normal);
+}
+
+.card:hover {
+  border-color: #404040;
+}
+
+/* Professional Input layout */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.375rem;
+  color: #9ca3af;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #262626;
+  background-color: #000000;
+  color: #ffffff;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  transition: border-color var(--transition-fast);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #7c3aed;
+}
+
+select.form-input {
+  background-color: #000000;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 0.5rem 0.875rem;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  transition: background-color var(--transition-fast);
+}
+
+.btn-primary {
+  background-color: #7c3aed;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: #6d28d9;
+}
+
+.btn-secondary {
+  background-color: #111111;
+  color: #ffffff;
+  border: 1px solid #262626;
+}
+
+.btn-secondary:hover {
+  background-color: #1a1a1a;
+  border-color: #404040;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #262626;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #404040;
+}
+
+/* Slide in animation for Toast notification */
+@keyframes slideIn {
+  from {
+    transform: translateY(1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

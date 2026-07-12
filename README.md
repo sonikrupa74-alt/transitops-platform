@@ -1,145 +1,104 @@
 # 🚚 TransitOps ERP
 
-<div align="center">
-
 ### Smart Fleet & Transportation Management System
 
-*A modern ERP platform for managing transportation operations, fleet, drivers, trips, maintenance, and business insights.*
-
-![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge\&logo=react)
-![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge\&logo=vite)
-![JavaScript](https://img.shields.io/badge/JavaScript-ES6-F7DF1E?style=for-the-badge\&logo=javascript)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=for-the-badge\&logo=tailwind-css)
-
-</div>
+*A modern enterprise ERP platform for managing transportation operations, fleet, drivers, trips, maintenance, and business insights.*
 
 ---
 
 ## 📖 Overview
 
-TransitOps ERP is a modern transportation management system designed to simplify daily fleet operations. It provides a centralized platform to manage vehicles, drivers, trips, maintenance, and operational insights through an intuitive ERP dashboard.
-
-Built with React and Vite, the application follows a clean, responsive, and professional dark-themed interface inspired by enterprise ERP software.
+TransitOps ERP is a modern transportation management system designed to simplify daily fleet operations. It connects a React + Vite (TypeScript) frontend dashboard to a Flask (Python) backend and a MySQL database, providing an end-to-end operational control center for real-time dispatch, driver performance tracking, and vehicle status management.
 
 ---
 
-## ✨ Current Features
+## 🛠️ System Architecture
 
-* 🔐 Secure Login Authentication
-* 👥 Role-Based Access Control (RBAC)
-* 📊 Interactive Dashboard
-* 🚛 Vehicle Management
-* 👨‍✈️ Driver Management
-* 🗺️ Trip Management
-* 🔧 Maintenance Module
-* 📈 Reports & Analytics
-* 🌙 Modern Dark ERP UI
-* 📱 Responsive Design
-
----
-
-## 🚀 Planned Features
-
-* Vehicle Details Page
-* Driver Details Page
-* Trip Dispatch Wizard
-* Interactive Maps
-* Live Vehicle Tracking
-* Fuel Management
-* Notifications
-* Audit Logs
-* Advanced Analytics
-* Document Management
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend
-
-* React
-* Vite
-* JavaScript (ES6+)
-* Tailwind CSS
-* React Router
-
-### UI
-
-* Modern ERP Design
-* Responsive Layout
-* Reusable Components
-* Dark Theme
+- **Frontend**: React 18, Vite 5, Tailwind CSS, TypeScript, Axios, Lucide Icons, Recharts.
+- **Backend**: Python 3.13, Flask, PyMySQL (highly stable native connection driver).
+- **Database**: MySQL 8.x+ (relational schema tracking vehicles, drivers, trips, and fuel logs).
 
 ---
 
 ## 📂 Project Structure
 
 ```text
-TransitOps/
+Odoo-hackathon/
 │
-├── public/
-├── src/
-│   ├── assets/
-│   ├── components/
-│   ├── layouts/
-│   ├── pages/
-│   │   ├── Login/
-│   │   ├── Dashboard/
-│   │   ├── Vehicles/
-│   │   ├── Drivers/
-│   │   ├── Trips/
-│   │   ├── Maintenance/
-│   │   └── Reports/
-│   ├── routes/
-│   ├── utils/
-│   └── App.jsx
+├── backend/                  # Python Flask API & Configuration
+│   ├── app.py                # Main backend REST routes
+│   ├── database.py           # PyMySQL wrapper and connection manager
+│   ├── config.py             # App parameters & environment variables loader
+│   ├── schema.sql            # Core database table DDLs
+│   └── update_db_schema.py   # Database auto-migration script
 │
-├── package.json
-└── README.md
+└── frontend/                 # React UI Dashboard Application
+    ├── src/
+    │   ├── components/       # Custom ERP widgets (Metrics, Tables, Toast)
+    │   ├── pages/            # Core views (Dashboard, Vehicles, Drivers, Trips)
+    │   └── utils/            # Client date & storage utility functions
+    ├── api/
+    │   └── api.ts            # Central Axios HTTP client targeting the backend
+    └── package.json          # Dependency deck
 ```
 
 ---
 
-## ⚙️ Getting Started
+## ⚙️ Getting Started & Installation
 
-Clone the repository
+Follow these steps to set up and run the TransitOps ERP system locally.
 
-```bash
-git clone https://github.com/your-username/transitops-erp.git
-```
+### 1. Database Configuration
+Ensure you have a MySQL server running locally on port `3306`. By default, the application connects to database `transitops_db` using user `root` and an empty password. 
 
-Go to the project directory
+To configure custom credentials, set these environment variables before running:
+- `DB_HOST` (defaults to `localhost`)
+- `DB_USER` (defaults to `root`)
+- `DB_PASSWORD` (defaults to `""`)
+- `DB_NAME` (defaults to `"transitops_db"`)
 
-```bash
-cd transitops-erp
-```
+### 2. Backend Setup
+1. Open a terminal and navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Install Python requirements (ensure you have `pymysql` and `flask` installed):
+   ```bash
+   pip install pymysql flask
+   ```
+3. Run the database migration script. This will automatically create the `transitops_db` database, vehicles, drivers, trips, and fuel logs tables, and apply all necessary structural alignments:
+   ```bash
+   python update_db_schema.py
+   ```
+4. Start the Flask API server:
+   ```bash
+   python app.py
+   ```
+   *The backend will boot on http://127.0.0.1:5000.*
 
-Install dependencies
-
-```bash
-npm install
-```
-
-Start the development server
-
-```bash
-npm run dev
-```
-
-Open your browser and visit:
-
-```text
-http://localhost:5173
-```
+### 3. Frontend Setup
+1. Open a new terminal and navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install client dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the Vite React development server:
+   ```bash
+   npm run dev
+   ```
+   *The user interface will be available at http://localhost:3000.*
 
 ---
 
-## 📸 Screenshots
+## 👥 Default Login Credentials
 
-Screenshots will be added after the UI is finalized.
-
----
-
-## 🎯 Project Objective
-
-TransitOps ERP aims to digitize transportation and fleet management by providing a unified platform for monitoring operations, managing resources, and improving overall efficiency through a modern enterprise interface.
+Use the following profiles to log in and access the control deck:
+- **Fleet Manager / Admin**:
+  - Email: `manager@transitops.com`
+  - Password: `manager123`
+- **Dispatcher / Operator**:
+  - Email: `driver@transitops.com`
+  - Password: `driver123`

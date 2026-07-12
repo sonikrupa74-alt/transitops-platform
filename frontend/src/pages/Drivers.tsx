@@ -1,8 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X, AlertTriangle } from 'lucide-react';
 import { 
-  getDrivers, 
-  setDrivers as saveDrivers, 
   isLicenseExpired,
   formatDateDMY,
   Driver 
@@ -18,9 +16,39 @@ import {
   ToastMessage,
   ActionDropdown 
 } from '../components/ERPComponents';
+import api from '../../api/api';
+
+const mapDriverFromBackend = (d: any): Driver => ({
+  id: `DRV-${d.driver_id}`,
+  name: d.full_name,
+  licenseNumber: d.license_number,
+  licenseCategory: d.license_category,
+  licenseExpiryDate: d.license_expiry,
+  contactNumber: d.contact_number,
+  status: d.status,
+  assignedVehicle: d.assigned_vehicle_id ? `VEH-${d.assigned_vehicle_id}` : 'None',
+  safetyScore: Number(d.safety_score)
+});
 
 export default function Drivers() {
-  const [drivers, setDrivers] = useState<Driver[]>(() => getDrivers());
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  const fetchData = async () => {
+    setIsLoadingData(true);
+    try {
+      const res = await api.get('/drivers');
+      setDrivers(res.data.map(mapDriverFromBackend));
+    } catch (err) {
+      showToast('Failed to load operators deck from database', 'error');
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -107,7 +135,7 @@ export default function Drivers() {
     setIsConfirmOpen(true);
   };
 
-  const handleSaveDriver = (e: React.FormEvent) => {
+  const handleSaveDriver = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validations
@@ -127,51 +155,45 @@ export default function Drivers() {
       return;
     }
 
-    if (modalMode === 'add') {
-      const newDriver: Driver = {
-        id: `DRV-${1000 + drivers.length + 1}`,
-        name,
-        licenseNumber: licenseNumber.toUpperCase(),
-        licenseCategory: 'Class A',
-        licenseExpiryDate,
-        contactNumber: phone,
-        status,
-        assignedVehicle: 'None',
-        safetyScore: Number(safetyScore)
-      };
+    const payload = {
+      full_name: name,
+      license_number: licenseNumber.toUpperCase(),
+      license_category: 'Class A',
+      license_expiry: licenseExpiryDate,
+      contact_number: phone,
+      status: status,
+      safety_score: Number(safetyScore),
+      assigned_vehicle_id: null
+    };
 
-      const updated = [...drivers, newDriver];
-      setDrivers(updated);
-      saveDrivers(updated);
-      showToast(`Driver ${newDriver.name} added to records`);
-    } else if (modalMode === 'edit' && selectedDriver) {
-      const updated = drivers.map(d => d.id === selectedDriver.id ? {
-        ...d,
-        name,
-        licenseNumber: licenseNumber.toUpperCase(),
-        licenseExpiryDate,
-        contactNumber: phone,
-        status,
-        safetyScore: Number(safetyScore)
-      } : d);
-
-      setDrivers(updated);
-      saveDrivers(updated);
-      showToast(`Driver ${name} profile updated`);
+    try {
+      if (modalMode === 'add') {
+        await api.post('/drivers', payload);
+        showToast(`Driver ${name} added to records`);
+      } else if (modalMode === 'edit' && selectedDriver) {
+        const numericId = Number(selectedDriver.id.replace('DRV-', ''));
+        await api.put(`/drivers/${numericId}`, payload);
+        showToast(`Driver ${name} profile updated`);
+      }
+      setIsFormOpen(false);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || err.message || 'Failed to save driver', 'error');
     }
-
-    setIsFormOpen(false);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!driverToDelete) return;
-    
-    const updated = drivers.filter(d => d.id !== driverToDelete.id);
-    setDrivers(updated);
-    saveDrivers(updated);
-    showToast(`Driver ${driverToDelete.name} deleted from records`, 'error');
-    setIsConfirmOpen(false);
-    setDriverToDelete(null);
+    try {
+      const numericId = Number(driverToDelete.id.replace('DRV-', ''));
+      await api.delete(`/drivers/${numericId}`);
+      showToast(`Driver ${driverToDelete.name} deleted from records`, 'error');
+      setIsConfirmOpen(false);
+      setDriverToDelete(null);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || err.message || 'Failed to delete driver', 'error');
+    }
   };
 
   // Headers for DataTable

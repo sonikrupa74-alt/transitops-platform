@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { 
   Truck, 
   Users, 
@@ -10,14 +11,75 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getVehicles, getDrivers, getTrips, isLicenseExpired } from '../utils/storage';
+import { isLicenseExpired, Vehicle, Driver, Trip } from '../utils/storage';
 import { PageHeader, MetricCard, StatusBadge } from '../components/ERPComponents';
+import api from '../../api/api';
+
+const mapVehicleFromBackend = (v: any): Vehicle => ({
+  id: `VEH-${v.vehicle_id}`,
+  registrationNumber: v.registration_no,
+  type: v.vehicle_type,
+  capacity: Number(v.max_capacity),
+  odometer: Number(v.odometer),
+  status: v.status,
+  acquisitionCost: Number(v.acquisition_cost),
+  driver: v.driver_id ? `DRV-${v.driver_id}` : 'None',
+  region: 'North'
+});
+
+const mapDriverFromBackend = (d: any): Driver => ({
+  id: `DRV-${d.driver_id}`,
+  name: d.full_name,
+  licenseNumber: d.license_number,
+  licenseCategory: d.license_category,
+  licenseExpiryDate: d.license_expiry,
+  contactNumber: d.contact_number,
+  status: d.status,
+  assignedVehicle: d.assigned_vehicle_id ? `VEH-${d.assigned_vehicle_id}` : 'None',
+  safetyScore: Number(d.safety_score)
+});
+
+const mapTripFromBackend = (t: any): Trip => ({
+  id: `TRIP-${t.trip_id}`,
+  source: t.source,
+  destination: t.destination,
+  vehicleId: `VEH-${t.vehicle_id}`,
+  driverId: `DRV-${t.driver_id}`,
+  cargoWeight: Number(t.cargo_weight),
+  plannedDistance: Number(t.planned_distance),
+  status: t.trip_status === 'Scheduled' ? 'Draft' : t.trip_status,
+  revenue: Number(t.revenue || 0),
+  finalOdometer: t.final_odometer ? Number(t.final_odometer) : undefined,
+  fuelConsumed: t.fuel_consumed ? Number(t.fuel_consumed) : undefined,
+  createdAt: t.created_at || new Date().toISOString()
+});
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const vehicles = getVehicles();
-  const drivers = getDrivers();
-  const trips = getTrips();
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [vehiclesRes, driversRes, tripsRes] = await Promise.all([
+          api.get('/vehicles'),
+          api.get('/drivers'),
+          api.get('/trips')
+        ]);
+        setVehicles(vehiclesRes.data.map(mapVehicleFromBackend));
+        setDrivers(driversRes.data.map(mapDriverFromBackend));
+        setTrips(tripsRes.data.map(mapTripFromBackend));
+      } catch (err) {
+        console.error("Failed to load dashboard data: ", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, []);
 
   // 1. Calculations
   const totalFleet = vehicles.length;

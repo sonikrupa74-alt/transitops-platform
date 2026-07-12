@@ -377,12 +377,13 @@ def add_vehicle():
         max_capacity,
         odometer,
         acquisition_cost,
-        status
+        status,
+        driver_id
         )
 
 
         VALUES
-        (%s,%s,%s,%s,%s,%s,%s)
+        (%s,%s,%s,%s,%s,%s,%s,%s)
 
 
         """,
@@ -394,7 +395,8 @@ def add_vehicle():
         data.get("max_capacity"),
         data.get("odometer"),
         data.get("acquisition_cost"),
-        data.get("status")
+        data.get("status"),
+        data.get("driver_id")
 
         ))
 
@@ -447,23 +449,54 @@ def update_vehicle(id):
         cursor=conn.cursor()
 
 
+        if "registration_no" in data:
+            cursor.execute("""
 
-        cursor.execute("""
+            UPDATE vehicles
 
-        UPDATE vehicles
+            SET vehicle_name=%s,
+                registration_no=%s,
+                vehicle_type=%s,
+                max_capacity=%s,
+                odometer=%s,
+                acquisition_cost=%s,
+                status=%s,
+                driver_id=%s
 
-        SET status=%s
-
-        WHERE vehicle_id=%s
+            WHERE vehicle_id=%s
 
 
-        """,
-        (
+            """,
+            (
 
-        data.get("status"),
-        id
+            data.get("vehicle_name"),
+            data.get("registration_no"),
+            data.get("vehicle_type"),
+            data.get("max_capacity"),
+            data.get("odometer"),
+            data.get("acquisition_cost"),
+            data.get("status"),
+            data.get("driver_id"),
+            id
 
-        ))
+            ))
+        else:
+            cursor.execute("""
+
+            UPDATE vehicles
+
+            SET status=%s
+
+            WHERE vehicle_id=%s
+
+
+            """,
+            (
+
+            data.get("status"),
+            id
+
+            ))
 
 
 
@@ -621,12 +654,13 @@ def add_driver():
         license_expiry,
         contact_number,
         safety_score,
-        status
+        status,
+        assigned_vehicle_id
         )
 
 
         VALUES
-        (%s,%s,%s,%s,%s,%s,%s)
+        (%s,%s,%s,%s,%s,%s,%s,%s)
 
 
         """,
@@ -638,7 +672,8 @@ def add_driver():
         data.get("license_expiry"),
         data.get("contact_number"),
         data.get("safety_score"),
-        data.get("status")
+        data.get("status"),
+        data.get("assigned_vehicle_id")
 
         ))
 
@@ -690,23 +725,54 @@ def update_driver(id):
         cursor=conn.cursor()
 
 
+        if "license_number" in data:
+            cursor.execute("""
 
-        cursor.execute("""
+            UPDATE drivers
 
-        UPDATE drivers
+            SET full_name=%s,
+                license_number=%s,
+                license_category=%s,
+                license_expiry=%s,
+                contact_number=%s,
+                safety_score=%s,
+                status=%s,
+                assigned_vehicle_id=%s
 
-        SET status=%s
-
-        WHERE driver_id=%s
+            WHERE driver_id=%s
 
 
-        """,
-        (
+            """,
+            (
 
-        data.get("status"),
-        id
+            data.get("full_name"),
+            data.get("license_number"),
+            data.get("license_category"),
+            data.get("license_expiry"),
+            data.get("contact_number"),
+            data.get("safety_score"),
+            data.get("status"),
+            data.get("assigned_vehicle_id"),
+            id
 
-        ))
+            ))
+        else:
+            cursor.execute("""
+
+            UPDATE drivers
+
+            SET status=%s
+
+            WHERE driver_id=%s
+
+
+            """,
+            (
+
+            data.get("status"),
+            id
+
+            ))
 
 
 
@@ -810,32 +876,23 @@ def get_trips():
         cursor.execute("""
         
         SELECT
-
         t.trip_id,
+        t.vehicle_id,
+        t.driver_id,
         t.source,
         t.destination,
         t.cargo_weight,
         t.planned_distance,
         t.trip_status,
         t.created_at,
-
         v.vehicle_name,
         v.registration_no,
-
         d.full_name
-
-
         FROM trips t
-
-
         LEFT JOIN vehicles v
         ON t.vehicle_id = v.vehicle_id
-
-
         LEFT JOIN drivers d
         ON t.driver_id = d.driver_id
-
-
         ORDER BY t.trip_id DESC
 
         """)
@@ -958,30 +1015,61 @@ def update_trip(id):
     try:
 
         data=request.get_json()
+        status=data.get("trip_status")
 
 
         conn=get_connection()
-        cursor=conn.cursor()
+        cursor=conn.cursor(dictionary=True)
 
 
-
-        cursor.execute("""
-
-        UPDATE trips
-
-        SET trip_status=%s
-
-        WHERE trip_id=%s
+        cursor.execute("SELECT * FROM trips WHERE trip_id=%s", (id,))
+        trip = cursor.fetchone()
 
 
-        """,
-        (
+        if not trip:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Trip not found"}), 404
 
-        data.get("trip_status"),
-        id
 
-        ))
+        vehicle_id = trip["vehicle_id"]
+        driver_id = trip["driver_id"]
 
+
+        if status == "Dispatched":
+            cursor.execute("UPDATE vehicles SET status='On Trip' WHERE vehicle_id=%s", (vehicle_id,))
+            cursor.execute("UPDATE drivers SET status='On Trip' WHERE driver_id=%s", (driver_id,))
+            cursor.execute("UPDATE trips SET trip_status=%s WHERE trip_id=%s", (status, id))
+        elif status == "Completed":
+            final_odo = data.get("final_odometer")
+            fuel_cons = data.get("fuel_consumed")
+
+
+            cursor.execute("""
+                UPDATE trips
+                SET trip_status=%s, final_odometer=%s, fuel_consumed=%s
+                WHERE trip_id=%s
+            """, (status, final_odo, fuel_cons, id))
+
+
+            cursor.execute("UPDATE vehicles SET status='Available', odometer=%s WHERE vehicle_id=%s", (final_odo, vehicle_id))
+            cursor.execute("UPDATE drivers SET status='Available' WHERE driver_id=%s", (driver_id,))
+
+
+            if fuel_cons:
+                liters = float(fuel_cons)
+                cost = liters * 92.0
+                cursor.execute("""
+                    INSERT INTO fuel_logs (vehicle_id, liters, fuel_cost, fuel_date)
+                    VALUES (%s, %s, %s, CURDATE())
+                """, (vehicle_id, liters, cost))
+        elif status == "Cancelled":
+            if trip["trip_status"] in ["Dispatched", "In Progress"]:
+                cursor.execute("UPDATE vehicles SET status='Available' WHERE vehicle_id=%s", (vehicle_id,))
+                cursor.execute("UPDATE drivers SET status='Available' WHERE driver_id=%s", (driver_id,))
+            cursor.execute("UPDATE trips SET trip_status=%s WHERE trip_id=%s", (status, id))
+        else:
+            cursor.execute("UPDATE trips SET trip_status=%s WHERE trip_id=%s", (status, id))
 
 
         conn.commit()
@@ -995,7 +1083,8 @@ def update_trip(id):
         return jsonify({
 
             "success":True,
-            "message":"Trip Status Updated"
+
+            "message":f"Trip status updated to {status}"
 
         })
 
@@ -1007,6 +1096,7 @@ def update_trip(id):
         return jsonify({
 
             "success":False,
+
             "message":str(e)
 
         }),500
@@ -1534,5 +1624,4 @@ def reports():
 # ==========================
 
 if __name__=="__main__":
-
     app.run(debug=True)

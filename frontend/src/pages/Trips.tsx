@@ -1,20 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import { 
-  getTrips, 
-  setTrips as saveTrips, 
-  getVehicles, 
-  setVehicles as saveVehicles, 
-  getDrivers, 
-  setDrivers as saveDrivers,
-  getFuelLogs,
-  setFuelLogs as saveFuelLogs,
   isLicenseExpired,
   formatDateDMY,
   Trip,
   Vehicle,
-  Driver,
-  FuelLog
+  Driver
 } from '../utils/storage';
 import { 
   PageHeader, 
@@ -27,11 +18,74 @@ import {
   ToastMessage,
   ActionDropdown 
 } from '../components/ERPComponents';
+import api from '../../api/api';
+
+const mapVehicleFromBackend = (v: any): Vehicle => ({
+  id: `VEH-${v.vehicle_id}`,
+  registrationNumber: v.registration_no,
+  type: v.vehicle_type,
+  capacity: Number(v.max_capacity),
+  odometer: Number(v.odometer),
+  status: v.status,
+  acquisitionCost: Number(v.acquisition_cost),
+  driver: v.driver_id ? `DRV-${v.driver_id}` : 'None',
+  region: 'North'
+});
+
+const mapDriverFromBackend = (d: any): Driver => ({
+  id: `DRV-${d.driver_id}`,
+  name: d.full_name,
+  licenseNumber: d.license_number,
+  licenseCategory: d.license_category,
+  licenseExpiryDate: d.license_expiry,
+  contactNumber: d.contact_number,
+  status: d.status,
+  assignedVehicle: d.assigned_vehicle_id ? `VEH-${d.assigned_vehicle_id}` : 'None',
+  safetyScore: Number(d.safety_score)
+});
+
+const mapTripFromBackend = (t: any): Trip => ({
+  id: `TRIP-${t.trip_id}`,
+  source: t.source,
+  destination: t.destination,
+  vehicleId: `VEH-${t.vehicle_id}`,
+  driverId: `DRV-${t.driver_id}`,
+  cargoWeight: Number(t.cargo_weight),
+  plannedDistance: Number(t.planned_distance),
+  status: t.trip_status === 'Scheduled' ? 'Draft' : t.trip_status,
+  revenue: Number(t.revenue || 0),
+  finalOdometer: t.final_odometer ? Number(t.final_odometer) : undefined,
+  fuelConsumed: t.fuel_consumed ? Number(t.fuel_consumed) : undefined,
+  createdAt: t.created_at || new Date().toISOString()
+});
 
 export default function Trips() {
-  const [trips, setTrips] = useState<Trip[]>(() => getTrips());
-  const [vehicles, setVehicles] = useState<Vehicle[]>(() => getVehicles());
-  const [drivers, setDrivers] = useState<Driver[]>(() => getDrivers());
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  const fetchData = async () => {
+    setIsLoadingData(true);
+    try {
+      const [tripsRes, vehiclesRes, driversRes] = await Promise.all([
+        api.get('/trips'),
+        api.get('/vehicles'),
+        api.get('/drivers')
+      ]);
+      setTrips(tripsRes.data.map(mapTripFromBackend));
+      setVehicles(vehiclesRes.data.map(mapVehicleFromBackend));
+      setDrivers(driversRes.data.map(mapDriverFromBackend));
+    } catch (err) {
+      showToast('Failed to load trips dispatch deck from database', 'error');
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -219,7 +273,7 @@ export default function Trips() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleCreateTrip = (e: React.FormEvent) => {
+  const handleCreateTrip = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateStep1() || !validateStep2() || !validateStep3() || !validateStep4()) {
@@ -227,40 +281,28 @@ export default function Trips() {
       return;
     }
 
-    const newTrip: Trip & { cargoType?: string } = {
-      id: `TRIP-${1000 + trips.length + 1}`,
+    const payload = {
+      vehicle_id: Number(selectedVehicleId.replace('VEH-', '')),
+      driver_id: Number(selectedDriverId.replace('DRV-', '')),
       source,
       destination,
-      vehicleId: selectedVehicleId,
-      driverId: selectedDriverId,
-      cargoWeight: Number(cargoWeight),
-      plannedDistance: Number(plannedDistance),
+      cargo_weight: Number(cargoWeight),
+      planned_distance: Number(plannedDistance),
       revenue: Number(revenue),
-      status: 'Draft',
-      createdAt: new Date().toISOString(),
-      cargoType
+      trip_status: 'Draft'
     };
 
-    /*
-      // --- FUTURE FLASK API INTEGRATION HOOK ---
-      // axios.post('/api/trips', newTrip)
-      //   .then(res => {
-      //      const saved = res.data;
-      //      setTrips(prev => [...prev, saved]);
-      //   })
-      //   .catch(err => {
-      //      console.error("Flask sync failed: ", err);
-      //   });
-    */
-
-    const updated = [...trips, newTrip];
-    setTrips(updated);
-    saveTrips(updated);
-    showToast(`Trip request ${newTrip.id} registered as Draft`);
-    setIsFormOpen(false);
+    try {
+      await api.post('/trips', payload);
+      showToast(`Trip request registered as Draft`);
+      setIsFormOpen(false);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || err.message || 'Failed to create trip', 'error');
+    }
   };
 
-  const handleDispatchTrip = (trip: Trip) => {
+  const handleDispatchTrip = async (trip: Trip) => {
     const veh = vehicles.find(v => v.id === trip.vehicleId);
     const drv = drivers.find(d => d.id === trip.driverId);
 
@@ -279,20 +321,16 @@ export default function Trips() {
       return;
     }
 
-    // Update status
-    const updatedTrips = trips.map(t => t.id === trip.id ? { ...t, status: 'Dispatched' as const } : t);
-    setTrips(updatedTrips);
-    saveTrips(updatedTrips);
-
-    const updatedVehicles = vehicles.map(v => v.id === trip.vehicleId ? { ...v, status: 'On Trip' as const } : v);
-    setVehicles(updatedVehicles);
-    saveVehicles(updatedVehicles);
-
-    const updatedDrivers = drivers.map(d => d.id === trip.driverId ? { ...d, status: 'On Trip' as const } : d);
-    setDrivers(updatedDrivers);
-    saveDrivers(updatedDrivers);
-
-    showToast(`Trip ${trip.id} dispatched successfully`);
+    try {
+      const numericId = Number(trip.id.replace('TRIP-', ''));
+      await api.put(`/trips/${numericId}`, {
+        trip_status: 'Dispatched'
+      });
+      showToast(`Trip ${trip.id} dispatched successfully`);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || err.message || 'Failed to dispatch trip', 'error');
+    }
   };
 
   const handleOpenComplete = (trip: Trip) => {
@@ -305,7 +343,7 @@ export default function Trips() {
     setIsFormOpen(true);
   };
 
-  const handleCompleteTrip = (e: React.FormEvent) => {
+  const handleCompleteTrip = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrip) return;
 
@@ -331,50 +369,19 @@ export default function Trips() {
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
-
-    // Complete Trip
-    const updatedTrips = trips.map(t => t.id === selectedTrip.id 
-      ? { ...t, status: 'Completed' as const, finalOdometer: odoVal, fuelConsumed: fuelVal } 
-      : t
-    );
-    setTrips(updatedTrips);
-    saveTrips(updatedTrips);
-
-    // Release Vehicle
-    const updatedVehicles = vehicles.map(v => v.id === selectedTrip.vehicleId 
-      ? { ...v, odometer: odoVal, status: 'Available' as const } 
-      : v
-    );
-    setVehicles(updatedVehicles);
-    saveVehicles(updatedVehicles);
-
-    // Release Operator
-    const updatedDrivers = drivers.map(d => d.id === selectedTrip.driverId 
-      ? { ...d, status: 'Available' as const } 
-      : d
-    );
-    setDrivers(updatedDrivers);
-    saveDrivers(updatedDrivers);
-
-    // Log Fuel
-    const logs = getFuelLogs();
-    const newLog: FuelLog = {
-      id: `FUEL-${1000 + logs.length + 1}`,
-      vehicleId: selectedTrip.vehicleId,
-      liters: fuelVal,
-      cost: Math.round(fuelVal * 92),
-      date: today,
-      odometer: odoVal,
-      pricePerLiter: 92,
-      station: 'Highway Petrol Pump',
-      driverId: selectedTrip.driverId,
-      paymentMethod: 'Fastag'
-    };
-    saveFuelLogs([...logs, newLog]);
-
-    showToast(`Trip ${selectedTrip.id} completed. Assets released.`);
-    setIsFormOpen(false);
+    try {
+      const numericId = Number(selectedTrip.id.replace('TRIP-', ''));
+      await api.put(`/trips/${numericId}`, {
+        trip_status: 'Completed',
+        final_odometer: odoVal,
+        fuel_consumed: fuelVal
+      });
+      showToast(`Trip ${selectedTrip.id} completed. Assets released.`);
+      setIsFormOpen(false);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || err.message || 'Failed to complete trip', 'error');
+    }
   };
 
   const handleOpenCancel = (trip: Trip) => {
@@ -382,26 +389,20 @@ export default function Trips() {
     setIsCancelConfirmOpen(true);
   };
 
-  const handleCancelConfirm = () => {
+  const handleCancelConfirm = async () => {
     if (!tripToCancel) return;
-
-    const updatedTrips = trips.map(t => t.id === tripToCancel.id ? { ...t, status: 'Cancelled' as const } : t);
-    setTrips(updatedTrips);
-    saveTrips(updatedTrips);
-
-    if (tripToCancel.status === 'Dispatched') {
-      const updatedVehicles = vehicles.map(v => v.id === tripToCancel.vehicleId ? { ...v, status: 'Available' as const } : v);
-      setVehicles(updatedVehicles);
-      saveVehicles(updatedVehicles);
-
-      const updatedDrivers = drivers.map(d => d.id === tripToCancel.driverId ? { ...d, status: 'Available' as const } : d);
-      setDrivers(updatedDrivers);
-      saveDrivers(updatedDrivers);
+    try {
+      const numericId = Number(tripToCancel.id.replace('TRIP-', ''));
+      await api.put(`/trips/${numericId}`, {
+        trip_status: 'Cancelled'
+      });
+      showToast(`Trip dispatch ${tripToCancel.id} cancelled`, 'error');
+      setIsCancelConfirmOpen(false);
+      setTripToCancel(null);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || err.message || 'Failed to cancel trip', 'error');
     }
-
-    showToast(`Trip dispatch ${tripToCancel.id} cancelled`, 'error');
-    setIsCancelConfirmOpen(false);
-    setTripToCancel(null);
   };
 
   const handleOpenView = (trip: Trip) => {

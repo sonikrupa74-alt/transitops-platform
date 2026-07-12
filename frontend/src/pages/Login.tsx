@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Shield, ArrowRight } from 'lucide-react';
+import api from '../../api/api';
 
 interface LoginProps {
   onLogin: (role: string) => void;
@@ -12,17 +13,34 @@ export default function Login({ onLogin }: LoginProps) {
   const [role, setRole] = useState('FleetManager');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
-    setTimeout(() => {
+    try {
+      const response = await api.post('/login', { email, password });
       setIsLoading(false);
-      onLogin(role);
-      navigate('/');
-    }, 1000);
+      if (response.data && response.data.success) {
+        // Map backend roles ('Manager', 'Admin', 'Dispatcher') to frontend roles ('FleetManager', 'Driver')
+        let userRole = 'FleetManager';
+        const rawRole = response.data.role;
+        if (rawRole === 'Dispatcher') {
+          userRole = 'Driver';
+        }
+        onLogin(userRole);
+        navigate('/');
+      } else {
+        setError(response.data.message || 'Invalid credentials');
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      const errMsg = err.response?.data?.message || err.message || 'Login connection failed';
+      setError(errMsg);
+    }
   };
 
   return (
@@ -40,6 +58,12 @@ export default function Login({ onLogin }: LoginProps) {
             <h1 style={styles.formTitle}>Sign In</h1>
             <p style={styles.formSubtitle}>Enter credentials to access transport ERP records</p>
           </div>
+
+          {error && (
+            <div style={{ color: '#ef4444', fontSize: '0.75rem', marginBottom: '1rem', textAlign: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.5rem', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} style={styles.form}>
             {/* Email */}

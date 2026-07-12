@@ -1,9 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import { 
-  getVehicles, 
-  setVehicles as saveVehicles, 
-  getDrivers, 
   Vehicle, 
   Driver 
 } from '../utils/storage';
@@ -18,10 +15,56 @@ import {
   ToastMessage,
   ActionDropdown 
 } from '../components/ERPComponents';
+import api from '../../api/api';
+
+const mapVehicleFromBackend = (v: any): Vehicle => ({
+  id: `VEH-${v.vehicle_id}`,
+  registrationNumber: v.registration_no,
+  type: v.vehicle_type,
+  capacity: Number(v.max_capacity),
+  odometer: Number(v.odometer),
+  status: v.status,
+  acquisitionCost: Number(v.acquisition_cost),
+  driver: v.driver_id ? `DRV-${v.driver_id}` : 'None',
+  region: 'North'
+});
+
+const mapDriverFromBackend = (d: any): Driver => ({
+  id: `DRV-${d.driver_id}`,
+  name: d.full_name,
+  licenseNumber: d.license_number,
+  licenseCategory: d.license_category,
+  licenseExpiryDate: d.license_expiry,
+  contactNumber: d.contact_number,
+  status: d.status,
+  assignedVehicle: d.assigned_vehicle_id ? `VEH-${d.assigned_vehicle_id}` : 'None',
+  safetyScore: Number(d.safety_score)
+});
 
 export default function Vehicles() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>(() => getVehicles());
-  const [drivers] = useState<Driver[]>(() => getDrivers());
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  const fetchData = async () => {
+    setIsLoadingData(true);
+    try {
+      const [vehiclesRes, driversRes] = await Promise.all([
+        api.get('/vehicles'),
+        api.get('/drivers')
+      ]);
+      setVehicles(vehiclesRes.data.map(mapVehicleFromBackend));
+      setDrivers(driversRes.data.map(mapDriverFromBackend));
+    } catch (err) {
+      showToast('Failed to load fleet registry from database', 'error');
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,7 +156,7 @@ export default function Vehicles() {
     setIsConfirmOpen(true);
   };
 
-  const handleSaveVehicle = (e: React.FormEvent) => {
+  const handleSaveVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validations
@@ -128,52 +171,45 @@ export default function Vehicles() {
       return;
     }
 
-    if (modalMode === 'add') {
-      const newVehicle: Vehicle = {
-        id: `VEH-${1000 + vehicles.length + 1}`,
-        registrationNumber: regNumber.toUpperCase(),
-        type,
-        capacity: Number(capacity),
-        odometer: Number(odometer),
-        status,
-        acquisitionCost: Number(acquisitionCost),
-        driver: assignedDriverId || 'None',
-        region: 'North'
-      };
+    const payload = {
+      vehicle_name: `${type} (${regNumber.toUpperCase()})`,
+      registration_no: regNumber.toUpperCase(),
+      vehicle_type: type,
+      max_capacity: Number(capacity),
+      odometer: Number(odometer),
+      acquisition_cost: Number(acquisitionCost),
+      status: status,
+      driver_id: assignedDriverId ? Number(assignedDriverId.replace('DRV-', '')) : null
+    };
 
-      const updated = [...vehicles, newVehicle];
-      setVehicles(updated);
-      saveVehicles(updated);
-      showToast(`Vehicle ${newVehicle.registrationNumber} registered successfully`);
-    } else if (modalMode === 'edit' && selectedVehicle) {
-      const updated = vehicles.map(v => v.id === selectedVehicle.id ? {
-        ...v,
-        registrationNumber: regNumber.toUpperCase(),
-        type,
-        capacity: Number(capacity),
-        odometer: Number(odometer),
-        status,
-        acquisitionCost: Number(acquisitionCost),
-        driver: assignedDriverId || 'None'
-      } : v);
-
-      setVehicles(updated);
-      saveVehicles(updated);
-      showToast(`Vehicle ${regNumber.toUpperCase()} profile updated`);
+    try {
+      if (modalMode === 'add') {
+        await api.post('/vehicles', payload);
+        showToast(`Vehicle ${regNumber.toUpperCase()} registered successfully`);
+      } else if (modalMode === 'edit' && selectedVehicle) {
+        const numericId = Number(selectedVehicle.id.replace('VEH-', ''));
+        await api.put(`/vehicles/${numericId}`, payload);
+        showToast(`Vehicle ${regNumber.toUpperCase()} profile updated`);
+      }
+      setIsFormOpen(false);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || err.message || 'Failed to save vehicle', 'error');
     }
-
-    setIsFormOpen(false);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!vehicleToDelete) return;
-    
-    const updated = vehicles.filter(v => v.id !== vehicleToDelete.id);
-    setVehicles(updated);
-    saveVehicles(updated);
-    showToast(`Vehicle ${vehicleToDelete.registrationNumber} removed from registry`, 'error');
-    setIsConfirmOpen(false);
-    setVehicleToDelete(null);
+    try {
+      const numericId = Number(vehicleToDelete.id.replace('VEH-', ''));
+      await api.delete(`/vehicles/${numericId}`);
+      showToast(`Vehicle ${vehicleToDelete.registrationNumber} removed from registry`, 'error');
+      setIsConfirmOpen(false);
+      setVehicleToDelete(null);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || err.message || 'Failed to delete vehicle', 'error');
+    }
   };
 
   // Headers for DataTable

@@ -172,12 +172,23 @@ export const isLicenseExpired = (expiryDateStr: string) => {
 
 export const formatDateDMY = (dateStr: string): string => {
   if (!dateStr) return '';
-  if (dateStr.includes('T')) {
-    const dateOnly = dateStr.split('T')[0];
-    const parts = dateOnly.split('-');
-    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  try {
+    const dateObj = new Date(dateStr);
+    if (isNaN(dateObj.getTime())) {
+      if (dateStr.includes('T')) {
+        const dateOnly = dateStr.split('T')[0];
+        const parts = dateOnly.split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      const parts = dateStr.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return dateStr;
+    }
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return dateStr;
   }
-  const parts = dateStr.split('-');
-  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-  return dateStr;
 };

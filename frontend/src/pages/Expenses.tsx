@@ -1,56 +1,182 @@
 import React, { useState } from 'react';
-import { Plus, X, Fuel, DollarSign } from 'lucide-react';
+import { Plus, X, Fuel, Receipt, Download } from 'lucide-react';
+import { 
+  ResponsiveContainer, 
+  LineChart, 
+  Line, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  PieChart, 
+  Pie, 
+  Cell 
+} from 'recharts';
 import { 
   getFuelLogs, 
   setFuelLogs as saveFuelLogs, 
   getExpenses, 
   setExpenses as saveExpenses, 
-  getVehicles, 
+  getVehicles,
+  getDrivers,
+  getTrips,
   FuelLog, 
   Expense, 
-  Vehicle 
+  Vehicle,
+  Driver,
+  Trip,
+  formatDateDMY
 } from '../utils/storage';
 import { 
   PageHeader, 
   SearchBar, 
   Toast, 
-  ToastMessage 
+  ToastMessage,
+  StatusBadge
 } from '../components/ERPComponents';
 
 export default function Expenses() {
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(() => getFuelLogs());
   const [expenses, setExpenses] = useState<Expense[]>(() => getExpenses());
   const [vehicles] = useState<Vehicle[]>(() => getVehicles());
+  const [drivers] = useState<Driver[]>(() => getDrivers());
+  const [trips] = useState<Trip[]>(() => getTrips());
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals & Toast
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [modalType, setModalType] = useState<'fuel' | 'expense'>('fuel');
-  
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  // Form Fields
+  // Form Fields - Fuel Log
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [fuelDate, setFuelDate] = useState(new Date().toISOString().split('T')[0]);
+  const [odometer, setOdometer] = useState('');
   const [liters, setLiters] = useState('');
-  const [cost, setCost] = useState('');
-  const [expenseType, setExpenseType] = useState<'Toll' | 'Maintenance' | 'Other'>('Toll');
+  const [pricePerLiter, setPricePerLiter] = useState('');
+  const [station, setStation] = useState('');
+  const [selectedDriverId, setSelectedDriverId] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Card' | 'UPI' | 'Fastag' | 'Net Banking'>('UPI');
+  const [notes, setNotes] = useState('');
+
+  // Form Fields - Expense
+  const [expenseVehicleId, setExpenseVehicleId] = useState('');
+  const [expenseType, setExpenseType] = useState<'Toll' | 'Maintenance' | 'Other' | 'Parking' | 'Insurance' | 'Permit' | 'Cleaning'>('Toll');
+  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [description, setDescription] = useState('');
+  const [billFileName, setBillFileName] = useState('');
+  const [expenseStatus, setExpenseStatus] = useState<'Pending' | 'Approved' | 'Rejected'>('Approved');
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Filter fuel and general expenses
+  // 1. Analytics Calculations
+  const totalFuelCost = fuelLogs.reduce((sum, log) => sum + log.cost, 0);
+  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const totalOperationalCost = totalFuelCost + totalExpenses;
+
+  // Efficiency & Cost per KM (trips based)
+  const completedTrips = trips.filter(t => t.status === 'Completed');
+  const totalDistance = completedTrips.reduce((sum, t) => sum + t.plannedDistance, 0) || 450;
+  const totalLiters = fuelLogs.reduce((sum, log) => sum + log.liters, 0) || 1;
+  const fleetFuelEfficiency = totalDistance / totalLiters;
+  const costPerKm = totalOperationalCost / totalDistance;
+
+  // Vehicle Stats Aggregations
+  const vehicleCosts = vehicles.map(v => {
+    const fuelCost = fuelLogs.filter(f => f.vehicleId === v.id).reduce((s, f) => s + f.cost, 0);
+    const expCost = expenses.filter(e => e.vehicleId === v.id).reduce((s, e) => s + e.amount, 0);
+    const total = fuelCost + expCost;
+    const l = fuelLogs.filter(f => f.vehicleId === v.id).reduce((s, f) => s + f.liters, 0);
+    const maintenanceCost = expenses.filter(e => e.vehicleId === v.id && e.type === 'Maintenance').reduce((s, e) => s + e.amount, 0);
+    return {
+      id: v.id,
+      reg: v.registrationNumber,
+      fuelCost,
+      expCost,
+      total,
+      liters: l,
+      maintenanceCost
+    };
+  });
+
+  const activeVehicles = vehicleCosts.filter(vc => vc.total > 0);
+  let mostExpensiveVehicle = 'N/A';
+  let cheapestVehicle = 'N/A';
+  if (activeVehicles.length > 0) {
+    const sortedByCost = [...activeVehicles].sort((a, b) => b.total - a.total);
+    mostExpensiveVehicle = sortedByCost[0].reg;
+    cheapestVehicle = sortedByCost[sortedByCost.length - 1].reg;
+  }
+
+  const top5Fuel = [...vehicleCosts]
+    .filter(vc => vc.liters > 0)
+    .sort((a, b) => b.liters - a.liters)
+    .slice(0, 5);
+
+  const top5Maintenance = [...vehicleCosts]
+    .filter(vc => vc.maintenanceCost > 0)
+    .sort((a, b) => b.maintenanceCost - a.maintenanceCost)
+    .slice(0, 5);
+
+  // Time groupings for Recharts
+  const getMonthYearStr = (dateStr: string) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toLocaleString('default', { month: 'short', year: '2-digit' });
+  };
+
+  const monthlyDataMap: Record<string, { month: string; fuelCost: number; fuelLiters: number; expenses: number }> = {};
+  
+  fuelLogs.forEach(log => {
+    const m = getMonthYearStr(log.date);
+    if (!monthlyDataMap[m]) {
+      monthlyDataMap[m] = { month: m, fuelCost: 0, fuelLiters: 0, expenses: 0 };
+    }
+    monthlyDataMap[m].fuelCost += log.cost;
+    monthlyDataMap[m].fuelLiters += log.liters;
+  });
+
+  expenses.forEach(exp => {
+    const m = getMonthYearStr(exp.date);
+    if (!monthlyDataMap[m]) {
+      monthlyDataMap[m] = { month: m, fuelCost: 0, fuelLiters: 0, expenses: 0 };
+    }
+    monthlyDataMap[m].expenses += exp.amount;
+  });
+
+  const chartMonthlyData = Object.values(monthlyDataMap).sort((a, b) => {
+    const parseDate = (mStr: string) => {
+      const parts = mStr.split(' ');
+      const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(parts[0]);
+      return new Date(2000 + Number(parts[1]), m);
+    };
+    return parseDate(a.month).getTime() - parseDate(b.month).getTime();
+  });
+
+  const categoryMap: Record<string, number> = {};
+  expenses.forEach(exp => {
+    categoryMap[exp.type] = (categoryMap[exp.type] || 0) + exp.amount;
+  });
+  const chartCategoryData = Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
+
+  const COLORS = ['#7c3aed', '#10b981', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#6b7280'];
+
+  // Search Ledger Logic
   const filteredFuelLogs = fuelLogs.filter(log => {
     const vehicle = vehicles.find(v => v.id === log.vehicleId);
-    return (vehicle?.registrationNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
+    return (vehicle?.registrationNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+           (log.station || '').toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const filteredExpenses = expenses.filter(exp => {
     const vehicle = vehicles.find(v => v.id === exp.vehicleId);
-    return (
-      (vehicle?.registrationNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exp.type.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    return (vehicle?.registrationNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+           (exp.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+           exp.type.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -61,19 +187,27 @@ export default function Expenses() {
 
   const handleOpenFuel = () => {
     setSelectedVehicleId('');
+    setFuelDate(new Date().toISOString().split('T')[0]);
+    setOdometer('');
     setLiters('');
-    setCost('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setPricePerLiter('');
+    setStation('');
+    setSelectedDriverId('');
+    setPaymentMethod('UPI');
+    setNotes('');
     setFormErrors({});
     setModalType('fuel');
     setIsFormOpen(true);
   };
 
   const handleOpenExpense = () => {
-    setSelectedVehicleId('');
+    setExpenseVehicleId('');
     setExpenseType('Toll');
+    setExpenseDate(new Date().toISOString().split('T')[0]);
     setAmount('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDescription('');
+    setBillFileName('');
+    setExpenseStatus('Approved');
     setFormErrors({});
     setModalType('expense');
     setIsFormOpen(true);
@@ -84,28 +218,37 @@ export default function Expenses() {
 
     const errors: Record<string, string> = {};
     if (!selectedVehicleId) errors.vehicle = 'Please select a vehicle';
+    if (!odometer || Number(odometer) <= 0) errors.odometer = 'Odometer is required';
     if (!liters || Number(liters) <= 0) errors.liters = 'Liters must be positive';
-    if (!cost || Number(cost) <= 0) errors.cost = 'Total cost must be positive';
-    if (!date) errors.date = 'Date is required';
+    if (!pricePerLiter || Number(pricePerLiter) <= 0) errors.price = 'Price is required';
+    if (!station.trim()) errors.station = 'Station name is required';
+    if (!selectedDriverId) errors.driver = 'Select operator';
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
     }
 
-    const matchedVeh = vehicles.find(v => v.id === selectedVehicleId);
+    const calculatedCost = Number(liters) * Number(pricePerLiter);
+
     const newFuelLog: FuelLog = {
       id: `FUEL-${1000 + fuelLogs.length + 1}`,
       vehicleId: selectedVehicleId,
       liters: Number(liters),
-      cost: Number(cost),
-      date
+      cost: calculatedCost,
+      date: fuelDate,
+      odometer: Number(odometer),
+      pricePerLiter: Number(pricePerLiter),
+      station,
+      driverId: selectedDriverId,
+      paymentMethod,
+      notes
     };
 
     const updated = [...fuelLogs, newFuelLog];
     setFuelLogs(updated);
     saveFuelLogs(updated);
-    showToast(`Logged ${liters}L of fuel for ${matchedVeh?.registrationNumber}`);
+    showToast(`Logged fuel check of ₹${calculatedCost.toLocaleString('en-IN')}`);
     setIsFormOpen(false);
   };
 
@@ -113,39 +256,113 @@ export default function Expenses() {
     e.preventDefault();
 
     const errors: Record<string, string> = {};
-    if (!selectedVehicleId) errors.vehicle = 'Please select a vehicle';
-    if (!amount || Number(amount) <= 0) errors.amount = 'Expense amount must be positive';
-    if (!date) errors.date = 'Date is required';
+    if (!expenseVehicleId) errors.vehicle = 'Please select a vehicle';
+    if (!amount || Number(amount) <= 0) errors.amount = 'Amount is required';
+    if (!description.trim()) errors.description = 'Description is required';
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
     }
 
-    const matchedVeh = vehicles.find(v => v.id === selectedVehicleId);
     const newExpense: Expense = {
       id: `EXP-${1000 + expenses.length + 1}`,
-      vehicleId: selectedVehicleId,
+      vehicleId: expenseVehicleId,
       type: expenseType,
       amount: Number(amount),
-      date
+      date: expenseDate,
+      description,
+      status: expenseStatus,
+      billAttached: !!billFileName,
+      billFileName: billFileName || undefined
     };
 
     const updated = [...expenses, newExpense];
     setExpenses(updated);
     saveExpenses(updated);
-    showToast(`Logged $${amount} ${expenseType} fee for ${matchedVeh?.registrationNumber}`);
+    showToast(`Logged ₹${Number(amount).toLocaleString('en-IN')} expense successfully`);
     setIsFormOpen(false);
+  };
+
+  const handleExportCSV = () => {
+    const headers = [
+      'Record ID',
+      'Registration Number',
+      'Record Type',
+      'Category/Station',
+      'Volume (Liters)',
+      'Odometer (km)',
+      'Price per Liter (₹)',
+      'Total Cost (₹)',
+      'Logged Date',
+      'Notes/Description',
+      'Status'
+    ];
+
+    const rows: any[] = [];
+    
+    fuelLogs.forEach(f => {
+      const veh = vehicles.find(v => v.id === f.vehicleId);
+      rows.push([
+        f.id,
+        veh ? veh.registrationNumber : f.vehicleId,
+        'Fuel Log',
+        f.station,
+        f.liters,
+        f.odometer,
+        f.pricePerLiter,
+        f.cost,
+        formatDateDMY(f.date),
+        f.notes || '',
+        'Completed'
+      ]);
+    });
+
+    expenses.forEach(e => {
+      const veh = vehicles.find(v => v.id === e.vehicleId);
+      rows.push([
+        e.id,
+        veh ? veh.registrationNumber : e.vehicleId,
+        'Operational Expense',
+        e.type,
+        'N/A',
+        'N/A',
+        'N/A',
+        e.amount,
+        formatDateDMY(e.date),
+        e.description || '',
+        e.status
+      ]);
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map((val: any) => `"${val}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `TransitOps_Fuel_Expenses_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
     <div style={styles.container}>
       <PageHeader 
-        title="Fleet Fuel & Operational Expenses"
-        description="Track fuel transactions, road tolls, maintenance logs, and asset expenses."
+        title="Fleet Fuel & Expense Hub"
+        description="Comprehensive analytics dashboard for fuel logs, operating expenses, and category cost distributions."
         breadcrumbs={[{ label: 'TransitOps ERP', link: '/' }, { label: 'Expenses', active: true }]}
         actions={
           <div style={styles.btnGroup}>
+            <button className="btn btn-secondary" onClick={handleExportCSV}>
+              <Download size={14} />
+              <span>Export CSV</span>
+            </button>
             <button className="btn btn-secondary" onClick={handleOpenFuel}>
               <Plus size={14} />
               <span>Log Fuel</span>
@@ -158,23 +375,155 @@ export default function Expenses() {
         }
       />
 
-      {/* Search Bar */}
+      {/* Analytics KPIs Section */}
+      <div style={styles.analyticsSection}>
+        <div style={styles.kpiRow}>
+          <div className="card" style={styles.kpiCard}>
+            <span style={styles.kpiLabel}>Total Fuel Cost</span>
+            <span style={styles.kpiValue}>₹{totalFuelCost.toLocaleString('en-IN')}</span>
+          </div>
+          <div className="card" style={styles.kpiCard}>
+            <span style={styles.kpiLabel}>Total Expenses</span>
+            <span style={styles.kpiValue}>₹{totalExpenses.toLocaleString('en-IN')}</span>
+          </div>
+          <div className="card" style={styles.kpiCard}>
+            <span style={styles.kpiLabel}>Operational Cost</span>
+            <span style={styles.kpiValue}>₹{totalOperationalCost.toLocaleString('en-IN')}</span>
+          </div>
+          <div className="card" style={styles.kpiCard}>
+            <span style={styles.kpiLabel}>Fuel Efficiency</span>
+            <span style={styles.kpiValue}>{fleetFuelEfficiency.toFixed(1)} km/L</span>
+          </div>
+          <div className="card" style={styles.kpiCard}>
+            <span style={styles.kpiLabel}>Cost Per KM</span>
+            <span style={styles.kpiValue}>₹{costPerKm.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Charts Deck */}
+        <div style={styles.chartsGrid}>
+          {/* Monthly Fuel Consumption */}
+          <div className="card" style={styles.chartCard}>
+            <h4 style={styles.chartTitle}>Monthly Fuel Analytics</h4>
+            <div style={{ height: '180px', marginTop: '0.5rem' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartMonthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#262626" />
+                  <XAxis dataKey="month" stroke="#9ca3af" fontSize={9} axisLine={false} tickLine={false} />
+                  <YAxis stroke="#9ca3af" fontSize={9} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#0b0b0b', borderColor: '#262626', fontSize: '10px' }} />
+                  <Legend wrapperStyle={{ fontSize: '9px', marginTop: '5px' }} />
+                  <Line type="monotone" dataKey="fuelLiters" name="Liters" stroke="#7c3aed" strokeWidth={2} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="fuelCost" name="Cost (₹)" stroke="#10b981" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Monthly Expenses */}
+          <div className="card" style={styles.chartCard}>
+            <h4 style={styles.chartTitle}>Monthly Expenses (₹)</h4>
+            <div style={{ height: '180px', marginTop: '0.5rem' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartMonthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#262626" />
+                  <XAxis dataKey="month" stroke="#9ca3af" fontSize={9} axisLine={false} tickLine={false} />
+                  <YAxis stroke="#9ca3af" fontSize={9} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#0b0b0b', borderColor: '#262626', fontSize: '10px' }} />
+                  <Bar dataKey="expenses" name="Expenses" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Expense Categories Distribution */}
+          <div className="card" style={styles.chartCard}>
+            <h4 style={styles.chartTitle}>Expense Category Distribution</h4>
+            <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartCategoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={60}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {chartCategoryData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: '#0b0b0b', borderColor: '#262626', fontSize: '10px' }} />
+                  <Legend wrapperStyle={{ fontSize: '8px' }} layout="vertical" align="right" verticalAlign="middle" />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Operating Highlights */}
+        <div style={styles.leadersGrid}>
+          <div className="card" style={styles.leaderCardBlock}>
+            <h4 style={styles.chartTitle}>Highlights</h4>
+            <div style={styles.highlightRow}>
+              <div>
+                <span style={styles.highlightLabel}>Highest Operating Cost</span>
+                <span style={styles.highlightVal}>{mostExpensiveVehicle}</span>
+              </div>
+              <div style={{ marginTop: '0.75rem' }}>
+                <span style={styles.highlightLabel}>Lowest Operating Cost</span>
+                <span style={styles.highlightVal}>{cheapestVehicle}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={styles.leaderCardBlock}>
+            <h4 style={styles.chartTitle}>Top Fuel Consuming Vehicles</h4>
+            <div style={styles.leaderMiniTable}>
+              {top5Fuel.map(v => (
+                <div key={v.id} style={styles.leaderMiniRow}>
+                  <span>{v.reg}</span>
+                  <span style={styles.leaderMiniVal}>{v.liters.toLocaleString('en-IN')} L</span>
+                </div>
+              ))}
+              {top5Fuel.length === 0 && <span style={styles.faintText}>No logs found</span>}
+            </div>
+          </div>
+
+          <div className="card" style={styles.leaderCardBlock}>
+            <h4 style={styles.chartTitle}>Top Maintenance Expenses</h4>
+            <div style={styles.leaderMiniTable}>
+              {top5Maintenance.map(v => (
+                <div key={v.id} style={styles.leaderMiniRow}>
+                  <span>{v.reg}</span>
+                  <span style={styles.leaderMiniVal}>₹{v.maintenanceCost.toLocaleString('en-IN')}</span>
+                </div>
+              ))}
+              {top5Maintenance.length === 0 && <span style={styles.faintText}>No logs found</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search Input */}
       <div className="card" style={styles.searchBarCard}>
         <SearchBar 
-          placeholder="Search ledgers by vehicle registration or category..."
+          placeholder="Filter records below by vehicle registration, description, category, or petrol pump..."
           value={searchTerm}
           onChange={setSearchTerm}
         />
       </div>
 
-      {/* Dual Ledger Panels */}
+      {/* Dual Ledger Tables */}
       <div style={styles.twoColumnGrid}>
         
-        {/* Fuel Logs Column */}
+        {/* Fuel Logs Ledger */}
         <div className="card" style={styles.ledgerCard}>
           <div style={styles.ledgerHeader}>
             <Fuel size={16} style={{ color: '#7c3aed' }} />
-            <h3 style={styles.ledgerTitle}>Recent Fuel Ledger</h3>
+            <h3 style={styles.ledgerTitle}>Recent Fuel Refills</h3>
           </div>
           
           <div style={styles.tableWrapper}>
@@ -182,9 +531,10 @@ export default function Expenses() {
               <thead>
                 <tr style={styles.thRow}>
                   <th style={styles.th}>Vehicle</th>
-                  <th style={styles.th}>Fuel Volume</th>
+                  <th style={styles.th}>Details</th>
+                  <th style={styles.th}>Refill station</th>
                   <th style={styles.th}>Total Cost</th>
-                  <th style={styles.th}>Logged Date</th>
+                  <th style={styles.th}>Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,15 +546,24 @@ export default function Expenses() {
                         <td style={styles.regTd}>
                           {vehicleObj ? vehicleObj.registrationNumber : log.vehicleId}
                         </td>
-                        <td style={styles.td}>{log.liters.toLocaleString()} Liters</td>
-                        <td style={{ ...styles.td, fontWeight: 700 }}>${log.cost.toLocaleString()}</td>
-                        <td style={styles.td}>{log.date}</td>
+                        <td style={styles.td}>
+                          <div style={styles.detailText}>Qty: {log.liters.toLocaleString()} L</div>
+                          <div style={styles.faintDetail}>Odo: {log.odometer.toLocaleString()} km</div>
+                        </td>
+                        <td style={styles.td}>
+                          <div style={styles.detailText}>{log.station}</div>
+                          <div style={styles.faintDetail}>{log.paymentMethod}</div>
+                        </td>
+                        <td style={{ ...styles.td, fontWeight: 700, color: '#10b981' }}>
+                          ₹{log.cost.toLocaleString('en-IN')}
+                        </td>
+                        <td style={styles.td}>{formatDateDMY(log.date)}</td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan={4} style={styles.emptyCell}>No fuel records logged.</td>
+                    <td colSpan={5} style={styles.emptyCell}>No fuel records logged.</td>
                   </tr>
                 )}
               </tbody>
@@ -212,10 +571,10 @@ export default function Expenses() {
           </div>
         </div>
 
-        {/* General Expenses Column */}
+        {/* Operational Expenses Ledger */}
         <div className="card" style={styles.ledgerCard}>
           <div style={styles.ledgerHeader}>
-            <DollarSign size={16} style={{ color: '#10b981' }} />
+            <Receipt size={16} style={{ color: '#10b981' }} />
             <h3 style={styles.ledgerTitle}>Operational Expenses Ledger</h3>
           </div>
 
@@ -224,9 +583,10 @@ export default function Expenses() {
               <thead>
                 <tr style={styles.thRow}>
                   <th style={styles.th}>Vehicle</th>
-                  <th style={styles.th}>Category</th>
+                  <th style={styles.th}>Category & Details</th>
+                  <th style={styles.th}>Status</th>
                   <th style={styles.th}>Amount</th>
-                  <th style={styles.th}>Logged Date</th>
+                  <th style={styles.th}>Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -247,15 +607,21 @@ export default function Expenses() {
                           }}>
                             {exp.type}
                           </span>
+                          <div style={{ ...styles.faintDetail, marginTop: '2px' }}>{exp.description}</div>
                         </td>
-                        <td style={{ ...styles.td, fontWeight: 700 }}>${exp.amount.toLocaleString()}</td>
-                        <td style={styles.td}>{exp.date}</td>
+                        <td style={styles.td}>
+                          <StatusBadge status={exp.status} />
+                        </td>
+                        <td style={{ ...styles.td, fontWeight: 700, color: '#ef4444' }}>
+                          ₹{exp.amount.toLocaleString('en-IN')}
+                        </td>
+                        <td style={styles.td}>{formatDateDMY(exp.date)}</td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan={4} style={styles.emptyCell}>No expenses logged.</td>
+                    <td colSpan={5} style={styles.emptyCell}>No expenses logged.</td>
                   </tr>
                 )}
               </tbody>
@@ -265,16 +631,16 @@ export default function Expenses() {
 
       </div>
 
-      {/* Toast alert */}
+      {/* Toast notifications */}
       <Toast message={toast} onClose={() => setToast(null)} />
 
-      {/* Logging Modals */}
+      {/* Logging Dialog Drawer */}
       {isFormOpen && (
         <div style={styles.modalOverlay}>
           <div className="card" style={styles.modalCard}>
             <div style={styles.modalHeader}>
               <h3 style={styles.modalTitle}>
-                {modalType === 'fuel' ? 'Log Fuel Transaction' : 'Record Operational Expense'}
+                {modalType === 'fuel' ? 'Log Refill Entry' : 'Record Operating Expense'}
               </h3>
               <button style={styles.closeBtn} onClick={() => setIsFormOpen(false)}>
                 <X size={16} />
@@ -290,7 +656,7 @@ export default function Expenses() {
                     value={selectedVehicleId}
                     onChange={(e) => setSelectedVehicleId(e.target.value)}
                   >
-                    <option value="">-- Select Fleet Vehicle --</option>
+                    <option value="">-- Select Vehicle --</option>
                     {vehicles.filter(v => v.status !== 'Retired').map(v => (
                       <option key={v.id} value={v.id}>{v.registrationNumber} ({v.type})</option>
                     ))}
@@ -300,7 +666,30 @@ export default function Expenses() {
 
                 <div style={styles.formRow}>
                   <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label">Fuel Volume (Liters)</label>
+                    <label className="form-label">Fuel Date</label>
+                    <input 
+                      type="date" 
+                      className="form-input" 
+                      value={fuelDate}
+                      onChange={(e) => setFuelDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Odometer Reading (km)</label>
+                    <input 
+                      type="number" 
+                      className="form-input" 
+                      placeholder="e.g. 46200"
+                      value={odometer}
+                      onChange={(e) => setOdometer(e.target.value)}
+                    />
+                    {formErrors.odometer && <span style={styles.errorText}>{formErrors.odometer}</span>}
+                  </div>
+                </div>
+
+                <div style={styles.formRow}>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Quantity (Liters)</label>
                     <input 
                       type="number" 
                       className="form-input" 
@@ -312,27 +701,78 @@ export default function Expenses() {
                   </div>
 
                   <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label">Total Cost ($)</label>
+                    <label className="form-label">Price per Liter (₹)</label>
                     <input 
                       type="number" 
                       className="form-input" 
-                      placeholder="e.g. 98"
-                      value={cost}
-                      onChange={(e) => setCost(e.target.value)}
+                      placeholder="e.g. 95"
+                      value={pricePerLiter}
+                      onChange={(e) => setPricePerLiter(e.target.value)}
                     />
-                    {formErrors.cost && <span style={styles.errorText}>{formErrors.cost}</span>}
+                    {formErrors.price && <span style={styles.errorText}>{formErrors.price}</span>}
+                  </div>
+                </div>
+
+                {/* Auto Calculated Cost Preview */}
+                {Number(liters) > 0 && Number(pricePerLiter) > 0 && (
+                  <div style={styles.costCalculationPreview}>
+                    Total Cost: <span style={{ color: '#10b981', fontWeight: 700 }}>₹{(Number(liters) * Number(pricePerLiter)).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+
+                <div style={styles.formRow}>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Fuel Station</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="e.g. HP Fuel Pump, Delhi"
+                      value={station}
+                      onChange={(e) => setStation(e.target.value)}
+                    />
+                    {formErrors.station && <span style={styles.errorText}>{formErrors.station}</span>}
+                  </div>
+
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Payment Method</label>
+                    <select 
+                      className="form-input"
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value as any)}
+                    >
+                      <option value="UPI">UPI Payment</option>
+                      <option value="Fastag">Fastag</option>
+                      <option value="Card">Credit/Debit Card</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Net Banking">Net Banking</option>
+                    </select>
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Purchase Date</label>
-                  <input 
-                    type="date" 
+                  <label className="form-label">Driver Assigned</label>
+                  <select 
+                    className="form-input"
+                    value={selectedDriverId}
+                    onChange={(e) => setSelectedDriverId(e.target.value)}
+                  >
+                    <option value="">-- Choose Operator --</option>
+                    {drivers.map(d => (
+                      <option key={d.id} value={d.id}>{d.name} ({d.id})</option>
+                    ))}
+                  </select>
+                  {formErrors.driver && <span style={styles.errorText}>{formErrors.driver}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Notes</label>
+                  <textarea 
                     className="form-input" 
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    placeholder="Enter additional trip log remarks..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    style={{ minHeight: '50px', resize: 'vertical' }}
                   />
-                  {formErrors.date && <span style={styles.errorText}>{formErrors.date}</span>}
                 </div>
 
                 <div style={styles.modalFooter}>
@@ -340,7 +780,7 @@ export default function Expenses() {
                     Cancel
                   </button>
                   <button type="submit" className="btn btn-primary">
-                    Record Fuel
+                    Record Refill
                   </button>
                 </div>
               </form>
@@ -350,10 +790,10 @@ export default function Expenses() {
                   <label className="form-label">Vehicle Registration</label>
                   <select 
                     className="form-input"
-                    value={selectedVehicleId}
-                    onChange={(e) => setSelectedVehicleId(e.target.value)}
+                    value={expenseVehicleId}
+                    onChange={(e) => setExpenseVehicleId(e.target.value)}
                   >
-                    <option value="">-- Select Fleet Vehicle --</option>
+                    <option value="">-- Select Vehicle --</option>
                     {vehicles.filter(v => v.status !== 'Retired').map(v => (
                       <option key={v.id} value={v.id}>{v.registrationNumber} ({v.type})</option>
                     ))}
@@ -370,17 +810,21 @@ export default function Expenses() {
                       onChange={(e) => setExpenseType(e.target.value as any)}
                     >
                       <option value="Toll">Road Toll Fee</option>
+                      <option value="Parking">Parking Charges</option>
                       <option value="Maintenance">Maintenance Shop</option>
-                      <option value="Other">Other Miscellaneous</option>
+                      <option value="Insurance">Insurance Policy</option>
+                      <option value="Permit">National Permit Fee</option>
+                      <option value="Cleaning">Cleaning & Wash</option>
+                      <option value="Other">Other Expenses</option>
                     </select>
                   </div>
 
                   <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label">Total Cost ($)</label>
+                    <label className="form-label">Total Cost (₹)</label>
                     <input 
                       type="number" 
                       className="form-input" 
-                      placeholder="e.g. 35"
+                      placeholder="e.g. 350"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                     />
@@ -388,15 +832,62 @@ export default function Expenses() {
                   </div>
                 </div>
 
+                <div style={styles.formRow}>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Logged Date</label>
+                    <input 
+                      type="date" 
+                      className="form-input" 
+                      value={expenseDate}
+                      onChange={(e) => setExpenseDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Approval Status</label>
+                    <select 
+                      className="form-input"
+                      value={expenseStatus}
+                      onChange={(e) => setExpenseStatus(e.target.value as any)}
+                    >
+                      <option value="Approved">Approved</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Rejected">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label className="form-label">Logged Date</label>
+                  <label className="form-label">Description / Remarks</label>
                   <input 
-                    type="date" 
+                    type="text" 
                     className="form-input" 
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    placeholder="e.g. Sanjay Gandhi Nagar RTO entry fee"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                   />
-                  {formErrors.date && <span style={styles.errorText}>{formErrors.date}</span>}
+                  {formErrors.description && <span style={styles.errorText}>{formErrors.description}</span>}
+                </div>
+
+                {/* Attach Bill (UI Only) */}
+                <div className="form-group">
+                  <label className="form-label">Attach Bill Receipt</label>
+                  <input 
+                    type="file" 
+                    className="form-input" 
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        setBillFileName(files[0].name);
+                      }
+                    }}
+                    style={{ padding: '0.375rem 0.5rem' }}
+                  />
+                  {billFileName && (
+                    <span style={{ fontSize: '11px', color: '#10b981', marginTop: '4px', display: 'block' }}>
+                      📎 File attached: {billFileName}
+                    </span>
+                  )}
                 </div>
 
                 <div style={styles.modalFooter}>
@@ -423,6 +914,106 @@ const styles = {
   btnGroup: {
     display: 'flex',
     gap: '0.5rem',
+  },
+  analyticsSection: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '1.25rem',
+    marginBottom: '1.5rem',
+  },
+  kpiRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(5, 1fr)',
+    gap: '0.75rem',
+    '@media (max-width: 1024px)': {
+      gridTemplateColumns: 'repeat(3, 1fr)',
+    },
+    '@media (max-width: 640px)': {
+      gridTemplateColumns: '1fr 1fr',
+    },
+  } as React.CSSProperties,
+  kpiCard: {
+    padding: '0.75rem 1rem',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.25rem',
+  },
+  kpiLabel: {
+    fontSize: '0.6875rem',
+    color: '#9ca3af',
+    fontWeight: 500,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.05em',
+  },
+  kpiValue: {
+    fontSize: '1rem',
+    fontWeight: 700,
+    color: '#ffffff',
+  },
+  chartsGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr 1fr',
+    gap: '1.25rem',
+    '@media (max-width: 1024px)': {
+      gridTemplateColumns: '1fr',
+    },
+  } as React.CSSProperties,
+  chartCard: {
+    padding: '1rem',
+  },
+  chartTitle: {
+    fontSize: '0.8125rem',
+    fontWeight: 700,
+    color: '#ffffff',
+  },
+  leadersGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1.2fr 1fr 1fr',
+    gap: '1.25rem',
+    '@media (max-width: 1024px)': {
+      gridTemplateColumns: '1fr',
+    },
+  } as React.CSSProperties,
+  leaderCardBlock: {
+    padding: '1rem',
+  },
+  highlightRow: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.5rem',
+    marginTop: '0.5rem',
+  },
+  highlightLabel: {
+    fontSize: '0.6875rem',
+    color: '#9ca3af',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.05em',
+    display: 'block',
+  },
+  highlightVal: {
+    fontSize: '0.875rem',
+    fontWeight: 700,
+    color: '#7c3aed',
+    display: 'block',
+    marginTop: '2px',
+  },
+  leaderMiniTable: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.375rem',
+    marginTop: '0.5rem',
+  },
+  leaderMiniRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '0.75rem',
+    color: '#ffffff',
+    borderBottom: '1px solid #111111',
+    paddingBottom: '2px',
+  },
+  leaderMiniVal: {
+    fontWeight: 700,
+    color: '#9ca3af',
   },
   searchBarCard: {
     padding: '0.75rem 1rem',
@@ -487,12 +1078,29 @@ const styles = {
     padding: '0.625rem 1.25rem',
     color: '#ffffff',
   },
+  detailText: {
+    fontWeight: 650,
+  },
+  faintDetail: {
+    color: '#9ca3af',
+    fontSize: '11px',
+    marginTop: '1px',
+  },
   categoryBadge: {
     padding: '0.125rem 0.5rem',
     borderRadius: '100px',
     fontSize: '0.6875rem',
     fontWeight: 600,
     display: 'inline-block',
+  },
+  costCalculationPreview: {
+    padding: '0.5rem 0.75rem',
+    backgroundColor: '#000000',
+    border: '1px solid #262626',
+    borderRadius: '4px',
+    fontSize: '11px',
+    color: '#9ca3af',
+    marginBottom: '1rem',
   },
   emptyCell: {
     padding: '3rem',
@@ -514,7 +1122,7 @@ const styles = {
   },
   modalCard: {
     width: '100%',
-    maxWidth: '460px',
+    maxWidth: '480px',
     backgroundColor: '#0b0b0b',
     border: '1px solid #262626',
     borderRadius: '4px',
@@ -556,5 +1164,9 @@ const styles = {
     borderTop: '1px solid #262626',
     paddingTop: '0.75rem',
     marginTop: '1rem',
+  },
+  faintText: {
+    fontSize: '11px',
+    color: '#9ca3af',
   },
 };

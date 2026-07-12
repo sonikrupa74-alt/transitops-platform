@@ -9,7 +9,8 @@ import {
   setExpenses as saveExpenses,
   MaintenanceLog,
   Vehicle,
-  Expense
+  Expense,
+  formatDateDMY
 } from '../utils/storage';
 import { 
   PageHeader, 
@@ -181,7 +182,9 @@ export default function Maintenance() {
         vehicleId: selectedVehicleId,
         type: 'Maintenance',
         amount: Number(cost),
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        description: `Maintenance Work: ${description}`,
+        status: 'Approved'
       };
       saveExpenses([...currentExpenses, newExpense]);
     }
@@ -239,7 +242,9 @@ export default function Maintenance() {
         vehicleId: selectedLog.vehicleId,
         type: 'Maintenance',
         amount: Number(cost),
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        description: `Maintenance Work: ${description}`,
+        status: 'Approved'
       };
       saveExpenses([...currentExpenses, newExpense]);
     }
@@ -288,7 +293,9 @@ export default function Maintenance() {
       vehicleId: selectedLog.vehicleId,
       type: 'Maintenance',
       amount: finalCost,
-      date: today
+      date: today,
+      description: `Closed Repair: ${selectedLog.description}`,
+      status: 'Approved'
     };
     saveExpenses([...currentExpenses, newExpense]);
 
@@ -323,7 +330,9 @@ export default function Maintenance() {
         vehicleId: log.vehicleId,
         type: 'Maintenance',
         amount: log.cost,
-        date: today
+        date: today,
+        description: `Transition Completed: ${log.description}`,
+        status: 'Approved'
       };
       saveExpenses([...currentExpenses, newExpense]);
     }
@@ -582,11 +591,11 @@ export default function Maintenance() {
                 <div style={styles.viewRow}>
                   <div>
                     <span style={styles.viewLabel}>Start Date</span>
-                    <span style={styles.viewVal}>{selectedLog.startDate}</span>
+                    <span style={styles.viewVal}>{formatDateDMY(selectedLog.startDate)}</span>
                   </div>
                   <div>
                     <span style={styles.viewLabel}>Estimated Completion Date</span>
-                    <span style={styles.viewVal}>{selectedLog.endDate || 'N/A'}</span>
+                    <span style={styles.viewVal}>{selectedLog.endDate ? formatDateDMY(selectedLog.endDate) : 'N/A'}</span>
                   </div>
                 </div>
 

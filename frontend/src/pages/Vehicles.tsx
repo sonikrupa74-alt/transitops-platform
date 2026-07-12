@@ -348,7 +348,7 @@ export default function Vehicles() {
                 <div style={styles.viewRow}>
                   <div>
                     <span style={styles.viewLabel}>Acquisition Cost</span>
-                    <span style={styles.viewVal}>${selectedVehicle.acquisitionCost.toLocaleString()}</span>
+                    <span style={styles.viewVal}>₹{selectedVehicle.acquisitionCost.toLocaleString('en-IN')}</span>
                   </div>
                   <div>
                     <span style={styles.viewLabel}>Assigned Operator</span>
@@ -384,7 +384,7 @@ export default function Vehicles() {
                     <input 
                       type="text" 
                       className="form-input" 
-                      placeholder="e.g. IL-4552"
+                      placeholder="e.g. GJ-01-AB-4521"
                       value={regNumber}
                       onChange={(e) => setRegNumber(e.target.value)}
                     />
@@ -434,11 +434,11 @@ export default function Vehicles() {
 
                 <div style={styles.formRow}>
                   <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label">Acquisition Cost ($)</label>
+                    <label className="form-label">Acquisition Cost (₹)</label>
                     <input 
                       type="number" 
                       className="form-input" 
-                      placeholder="e.g. 45000"
+                      placeholder="e.g. 1800000"
                       value={acquisitionCost}
                       onChange={(e) => setAcquisitionCost(e.target.value)}
                     />

@@ -10,6 +10,7 @@ import {
   getFuelLogs,
   setFuelLogs as saveFuelLogs,
   isLicenseExpired,
+  formatDateDMY,
   Trip,
   Vehicle,
   Driver,
@@ -362,8 +363,13 @@ export default function Trips() {
       id: `FUEL-${1000 + logs.length + 1}`,
       vehicleId: selectedTrip.vehicleId,
       liters: fuelVal,
-      cost: Math.round(fuelVal * 1.95),
-      date: today
+      cost: Math.round(fuelVal * 92),
+      date: today,
+      odometer: odoVal,
+      pricePerLiter: 92,
+      station: 'Highway Petrol Pump',
+      driverId: selectedTrip.driverId,
+      paymentMethod: 'Fastag'
     };
     saveFuelLogs([...logs, newLog]);
 
@@ -476,9 +482,9 @@ export default function Trips() {
               </td>
               <td style={styles.td}>{veh ? veh.registrationNumber : trip.vehicleId}</td>
               <td style={styles.td}>{drv ? drv.name : trip.driverId}</td>
-              <td style={styles.td}>{trip.cargoWeight.toLocaleString()} kg</td>
-              <td style={styles.td}>{trip.plannedDistance.toLocaleString()} km</td>
-              <td style={{ ...styles.td, fontWeight: 700 }}>${trip.revenue.toLocaleString()}</td>
+              <td style={styles.td}>{trip.cargoWeight.toLocaleString('en-IN')} kg</td>
+              <td style={styles.td}>{trip.plannedDistance.toLocaleString('en-IN')} km</td>
+              <td style={{ ...styles.td, fontWeight: 700 }}>₹{trip.revenue.toLocaleString('en-IN')}</td>
               <td style={styles.td}>
                 <StatusBadge status={trip.status} />
               </td>
@@ -551,6 +557,51 @@ export default function Trips() {
 
             {modalMode === 'view' && selectedTrip && (
               <div style={styles.viewGrid}>
+                {/* Visual Status Progress Timeline */}
+                <div style={styles.timelineContainer}>
+                  <div style={{ ...styles.timelineStep, color: '#ffffff' }}>
+                    <div style={{ ...styles.timelineDot, backgroundColor: '#7c3aed' }} />
+                    <span style={styles.timelineLabel}>Draft</span>
+                  </div>
+                  <div style={{ 
+                    ...styles.timelineLine, 
+                    backgroundColor: (selectedTrip.status === 'Dispatched' || selectedTrip.status === 'Completed') ? '#7c3aed' : '#262626' 
+                  }} />
+                  <div style={{ 
+                    ...styles.timelineStep, 
+                    color: (selectedTrip.status === 'Dispatched' || selectedTrip.status === 'Completed') ? '#ffffff' : '#525252' 
+                  }}>
+                    <div style={{ 
+                      ...styles.timelineDot, 
+                      backgroundColor: (selectedTrip.status === 'Dispatched' || selectedTrip.status === 'Completed') ? '#7c3aed' : '#262626' 
+                    }} />
+                    <span style={styles.timelineLabel}>Dispatched</span>
+                  </div>
+                  <div style={{ 
+                    ...styles.timelineLine, 
+                    backgroundColor: selectedTrip.status === 'Completed' ? '#7c3aed' : '#262626' 
+                  }} />
+                  <div style={{ 
+                    ...styles.timelineStep, 
+                    color: selectedTrip.status === 'Completed' ? '#ffffff' : '#525252' 
+                  }}>
+                    <div style={{ 
+                      ...styles.timelineDot, 
+                      backgroundColor: selectedTrip.status === 'Completed' ? '#7c3aed' : '#262626' 
+                    }} />
+                    <span style={styles.timelineLabel}>Completed</span>
+                  </div>
+                  {selectedTrip.status === 'Cancelled' && (
+                    <>
+                      <div style={{ ...styles.timelineLine, backgroundColor: '#ef4444' }} />
+                      <div style={{ ...styles.timelineStep, color: '#ef4444' }}>
+                        <div style={{ ...styles.timelineDot, backgroundColor: '#ef4444' }} />
+                        <span style={styles.timelineLabel}>Cancelled</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 <div style={styles.viewRow}>
                   <div>
                     <span style={styles.viewLabel}>Route Source</span>
@@ -588,7 +639,7 @@ export default function Trips() {
                 <div style={styles.viewRow}>
                   <div>
                     <span style={styles.viewLabel}>Trip Cargo Revenue</span>
-                    <span style={styles.viewVal}>${selectedTrip.revenue.toLocaleString()}</span>
+                    <span style={styles.viewVal}>₹{selectedTrip.revenue.toLocaleString('en-IN')}</span>
                   </div>
                   <div>
                     <span style={styles.viewLabel}>Dispatch State</span>
@@ -609,6 +660,12 @@ export default function Trips() {
                     </div>
                   </div>
                 )}
+                <div style={styles.viewRow}>
+                  <div>
+                    <span style={styles.viewLabel}>Date Created</span>
+                    <span style={styles.viewVal}>{formatDateDMY(selectedTrip.createdAt)}</span>
+                  </div>
+                </div>
                 <div style={styles.modalFooter}>
                   <button className="btn btn-secondary" onClick={() => setIsFormOpen(false)}>
                     Close Details
@@ -704,7 +761,7 @@ export default function Trips() {
                       <input 
                         type="text" 
                         className="form-input" 
-                        placeholder="e.g. Chicago, IL"
+                        placeholder="e.g. Ahmedabad, Gujarat"
                         value={source}
                         onChange={(e) => setSource(e.target.value)}
                       />
@@ -716,7 +773,7 @@ export default function Trips() {
                       <input 
                         type="text" 
                         className="form-input" 
-                        placeholder="e.g. Dallas, TX"
+                        placeholder="e.g. Mumbai, Maharashtra"
                         value={destination}
                         onChange={(e) => setDestination(e.target.value)}
                       />
@@ -733,8 +790,7 @@ export default function Trips() {
                     {formErrors.vehicle && <span style={styles.errorText}>{formErrors.vehicle}</span>}
 
                     <div style={styles.selectorScrollBox}>
-                      {vehicles.filter(v => v.status !== 'Retired').map(v => {
-                        const isSelectable = v.status === 'Available';
+                      {vehicles.filter(v => v.status === 'Available').map(v => {
                         const isSelected = selectedVehicleId === v.id;
                         const matchedDrv = drivers.find(d => d.id === v.driver);
                         return (
@@ -742,17 +798,14 @@ export default function Trips() {
                             key={v.id} 
                             style={{
                               ...styles.selectorItem,
-                              opacity: isSelectable ? 1 : 0.45,
-                              cursor: isSelectable ? 'pointer' : 'not-allowed',
+                              cursor: 'pointer',
                               borderColor: isSelected ? '#7c3aed' : '#262626',
                               backgroundColor: isSelected ? '#111111' : '#000000',
                             }}
                             onClick={() => {
-                              if (isSelectable) {
-                                setSelectedVehicleId(v.id);
-                                handleSelectAsset(v.id, selectedDriverId, cargoWeight);
-                                setFormErrors({});
-                              }
+                              setSelectedVehicleId(v.id);
+                              handleSelectAsset(v.id, selectedDriverId, cargoWeight);
+                              setFormErrors({});
                             }}
                           >
                             <div style={styles.selectorItemHeader}>
@@ -873,11 +926,11 @@ export default function Trips() {
                       </div>
 
                       <div className="form-group" style={{ flex: 1 }}>
-                        <label className="form-label">Planned Revenue ($)</label>
+                        <label className="form-label">Planned Revenue (₹)</label>
                         <input 
                           type="number" 
                           className="form-input" 
-                          placeholder="e.g. 1800"
+                          placeholder="e.g. 25000"
                           value={revenue}
                           onChange={(e) => setRevenue(e.target.value)}
                         />
@@ -923,18 +976,18 @@ export default function Trips() {
                       <div style={styles.reviewRow}>
                         <div>
                           <span style={styles.reviewLabel}>Cargo Summary</span>
-                          <span style={styles.reviewVal}>{Number(cargoWeight).toLocaleString()} kg ({cargoType})</span>
+                          <span style={styles.reviewVal}>{Number(cargoWeight).toLocaleString('en-IN')} kg ({cargoType})</span>
                         </div>
                         <div>
                           <span style={styles.reviewLabel}>Planned Distance</span>
-                          <span style={styles.reviewVal}>{Number(plannedDistance).toLocaleString()} km</span>
+                          <span style={styles.reviewVal}>{Number(plannedDistance).toLocaleString('en-IN')} km</span>
                         </div>
                       </div>
 
                       <div style={styles.reviewRow}>
                         <div>
                           <span style={styles.reviewLabel}>Estimated Revenue</span>
-                          <span style={{ ...styles.reviewVal, color: '#10b981' }}>${Number(revenue).toLocaleString()}</span>
+                          <span style={{ ...styles.reviewVal, color: '#10b981' }}>₹{Number(revenue).toLocaleString('en-IN')}</span>
                         </div>
                       </div>
                     </div>
@@ -1248,6 +1301,42 @@ const styles = {
     color: '#ffffff',
     marginTop: '2px',
     display: 'block',
+  },
+  // Timeline Progress Styles
+  timelineContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0.875rem 1rem',
+    backgroundColor: '#000000',
+    border: '1px solid #262626',
+    borderRadius: '4px',
+    marginBottom: '1rem',
+  },
+  timelineStep: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: '0.25rem',
+    fontSize: '0.6875rem',
+    fontWeight: 700,
+    width: '80px',
+  },
+  timelineDot: {
+    width: '10px',
+    height: '10px',
+    borderRadius: '50%',
+    transition: 'all 0.2s ease',
+  },
+  timelineLabel: {
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.05em',
+  },
+  timelineLine: {
+    flex: 1,
+    height: '2px',
+    margin: '0 0.25rem',
+    transition: 'all 0.2s ease',
   },
 };
 

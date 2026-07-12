@@ -4,6 +4,7 @@ import {
   getDrivers, 
   setDrivers as saveDrivers, 
   isLicenseExpired,
+  formatDateDMY,
   Driver 
 } from '../utils/storage';
 import { 
@@ -229,10 +230,10 @@ export default function Drivers() {
                 {isExpired ? (
                   <span style={styles.expiredAlert}>
                     <AlertTriangle size={12} />
-                    <span>{d.licenseExpiryDate} (Expired)</span>
+                    <span>{formatDateDMY(d.licenseExpiryDate)} (Expired)</span>
                   </span>
                 ) : (
-                  <span>{d.licenseExpiryDate}</span>
+                  <span>{formatDateDMY(d.licenseExpiryDate)}</span>
                 )}
               </td>
               <td style={styles.td}>{d.contactNumber}</td>
@@ -330,9 +331,9 @@ export default function Drivers() {
                     <span style={styles.viewLabel}>License Expiration</span>
                     <span style={styles.viewVal}>
                       {isLicenseExpired(selectedDriver.licenseExpiryDate) ? (
-                        <span style={{ color: '#ef4444' }}>{selectedDriver.licenseExpiryDate} (Expired)</span>
+                        <span style={{ color: '#ef4444' }}>{formatDateDMY(selectedDriver.licenseExpiryDate)} (Expired)</span>
                       ) : (
-                        selectedDriver.licenseExpiryDate
+                        formatDateDMY(selectedDriver.licenseExpiryDate)
                       )}
                     </span>
                   </div>
@@ -371,7 +372,7 @@ export default function Drivers() {
                   <input 
                     type="text" 
                     className="form-input" 
-                    placeholder="e.g. Alex Johnson"
+                    placeholder="e.g. Rahul Sharma"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
@@ -384,7 +385,7 @@ export default function Drivers() {
                     <input 
                       type="text" 
                       className="form-input" 
-                      placeholder="e.g. DL-12345"
+                      placeholder="e.g. DL-01-AB-1234"
                       value={licenseNumber}
                       onChange={(e) => setLicenseNumber(e.target.value)}
                     />
@@ -409,7 +410,7 @@ export default function Drivers() {
                     <input 
                       type="text" 
                       className="form-input" 
-                      placeholder="e.g. 555-0199"
+                      placeholder="e.g. +91-98765-43210"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                     />

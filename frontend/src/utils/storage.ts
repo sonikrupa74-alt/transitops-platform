@@ -58,51 +58,61 @@ export interface FuelLog {
   liters: number;
   cost: number;
   date: string;
+  odometer: number;
+  pricePerLiter: number;
+  station: string;
+  driverId: string;
+  paymentMethod: 'Cash' | 'Card' | 'UPI' | 'Fastag' | 'Net Banking';
+  notes?: string;
 }
 
 export interface Expense {
   id: string;
   vehicleId: string;
-  type: 'Toll' | 'Maintenance' | 'Other';
+  type: 'Toll' | 'Maintenance' | 'Other' | 'Parking' | 'Insurance' | 'Permit' | 'Cleaning';
   amount: number;
   date: string;
+  description: string;
+  billAttached?: boolean;
+  billFileName?: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
 }
 
 // Initial Seed Data (Indian Context)
 const initialVehicles: Vehicle[] = [
-  { id: 'VEH-101', registrationNumber: 'DL-01-CA-2015', type: 'Van', capacity: 500, status: 'Available', driver: 'DRV-101', odometer: 45210, region: 'North', acquisitionCost: 450000 },
-  { id: 'VEH-102', registrationNumber: 'MH-12-PQ-5678', type: 'Semi-Truck', capacity: 12000, status: 'On Trip', driver: 'DRV-102', odometer: 189450, region: 'West', acquisitionCost: 4500000 },
-  { id: 'VEH-103', registrationNumber: 'KA-03-MM-9012', type: 'Flatbed', capacity: 4500, status: 'In Shop', driver: 'None', odometer: 92100, region: 'South', acquisitionCost: 2200000 },
-  { id: 'VEH-104', registrationNumber: 'HR-26-BC-4412', type: 'Box Truck', capacity: 3500, status: 'Available', driver: 'DRV-104', odometer: 64300, region: 'North', acquisitionCost: 1800000 },
-  { id: 'VEH-105', registrationNumber: 'TN-07-JK-3321', type: 'Van', capacity: 600, status: 'On Trip', driver: 'None', odometer: 38900, region: 'South', acquisitionCost: 550000 },
+  { id: 'VEH-101', registrationNumber: 'DL-01-CD-5478', type: 'Van', capacity: 500, status: 'Available', driver: 'DRV-101', odometer: 45210, region: 'North', acquisitionCost: 450000 },
+  { id: 'VEH-102', registrationNumber: 'MH-12-KL-9823', type: 'Semi-Truck', capacity: 12000, status: 'On Trip', driver: 'DRV-102', odometer: 189450, region: 'West', acquisitionCost: 4500000 },
+  { id: 'VEH-103', registrationNumber: 'KA-03-GH-7821', type: 'Flatbed', capacity: 4500, status: 'In Shop', driver: 'None', odometer: 92100, region: 'South', acquisitionCost: 2200000 },
+  { id: 'VEH-104', registrationNumber: 'GJ-01-AB-4521', type: 'Box Truck', capacity: 3500, status: 'Available', driver: 'DRV-104', odometer: 64300, region: 'West', acquisitionCost: 1800000 },
+  { id: 'VEH-105', registrationNumber: 'RJ-14-EF-2365', type: 'Van', capacity: 600, status: 'On Trip', driver: 'None', odometer: 38900, region: 'West', acquisitionCost: 550000 },
 ];
 
 const initialDrivers: Driver[] = [
-  { id: 'DRV-101', name: 'Rajesh Kumar', licenseNumber: 'DL-99281', licenseCategory: 'Class A', licenseExpiryDate: '2026-10-15', contactNumber: '+91-98765-43210', status: 'Available', assignedVehicle: 'VEH-101', safetyScore: 4.8 },
-  { id: 'DRV-102', name: 'Marcus Patel', licenseNumber: 'DL-82910', licenseCategory: 'Class A', licenseExpiryDate: '2027-02-20', contactNumber: '+91-98765-43211', status: 'On Trip', assignedVehicle: 'VEH-102', safetyScore: 4.9 },
-  { id: 'DRV-103', name: 'Priya Sharma', licenseNumber: 'DL-33219', licenseCategory: 'Class B', licenseExpiryDate: '2026-05-10', contactNumber: '+91-98765-43212', status: 'Off Duty', assignedVehicle: 'None', safetyScore: 4.2 },
-  { id: 'DRV-104', name: 'Sunil Singh', licenseNumber: 'DL-44122', licenseCategory: 'Class C', licenseExpiryDate: '2026-12-05', contactNumber: '+91-98765-43213', status: 'Available', assignedVehicle: 'VEH-104', safetyScore: 4.5 },
-  { id: 'DRV-105', name: 'Rohan Deshmukh', licenseNumber: 'DL-55829', licenseCategory: 'Class A', licenseExpiryDate: '2025-11-01', contactNumber: '+91-98765-43214', status: 'Suspended', assignedVehicle: 'None', safetyScore: 3.8 },
+  { id: 'DRV-101', name: 'Rahul Sharma', licenseNumber: 'DL-99281', licenseCategory: 'Class A', licenseExpiryDate: '2026-10-15', contactNumber: '+91-98765-43210', status: 'Available', assignedVehicle: 'VEH-101', safetyScore: 4.8 },
+  { id: 'DRV-102', name: 'Amit Patel', licenseNumber: 'DL-82910', licenseCategory: 'Class A', licenseExpiryDate: '2027-02-20', contactNumber: '+91-98765-43211', status: 'On Trip', assignedVehicle: 'VEH-102', safetyScore: 4.9 },
+  { id: 'DRV-103', name: 'Rakesh Kumar', licenseNumber: 'DL-33219', licenseCategory: 'Class B', licenseExpiryDate: '2026-05-10', contactNumber: '+91-98765-43212', status: 'Off Duty', assignedVehicle: 'None', safetyScore: 4.2 },
+  { id: 'DRV-104', name: 'Priya Shah', licenseNumber: 'DL-44122', licenseCategory: 'Class C', licenseExpiryDate: '2026-12-05', contactNumber: '+91-98765-43213', status: 'Available', assignedVehicle: 'VEH-104', safetyScore: 4.5 },
+  { id: 'DRV-105', name: 'Neha Joshi', licenseNumber: 'DL-55829', licenseCategory: 'Class A', licenseExpiryDate: '2025-11-01', contactNumber: '+91-98765-43214', status: 'Suspended', assignedVehicle: 'None', safetyScore: 3.8 },
 ];
 
 const initialTrips: Trip[] = [
-  { id: 'TRIP-1001', source: 'Delhi', destination: 'Jaipur', vehicleId: 'VEH-101', driverId: 'DRV-101', cargoWeight: 450, plannedDistance: 270, status: 'Completed', finalOdometer: 45480, fuelConsumed: 25, revenue: 15000, createdAt: '2026-07-10T14:30:00.000Z' },
-  { id: 'TRIP-1002', source: 'Mumbai', destination: 'Pune', vehicleId: 'VEH-102', driverId: 'DRV-102', cargoWeight: 10000, plannedDistance: 150, status: 'Dispatched', revenue: 32000, createdAt: '2026-07-12T08:15:00.000Z' },
+  { id: 'TRIP-1001', source: 'Delhi', destination: 'Jaipur, Rajasthan', vehicleId: 'VEH-101', driverId: 'DRV-101', cargoWeight: 450, plannedDistance: 270, status: 'Completed', finalOdometer: 45480, fuelConsumed: 25, revenue: 15000, createdAt: '2026-07-10T14:30:00.000Z' },
+  { id: 'TRIP-1002', source: 'Mumbai, Maharashtra', destination: 'Pune, Maharashtra', vehicleId: 'VEH-102', driverId: 'DRV-102', cargoWeight: 10000, plannedDistance: 150, status: 'Dispatched', revenue: 32000, createdAt: '2026-07-12T08:15:00.000Z' },
 ];
 
 const initialMaintenance: MaintenanceLog[] = [
-  { id: 'MTN-1001', vehicleId: 'VEH-103', description: 'Hydraulic leak checkup', cost: 12000, startDate: '2026-07-11', status: 'In Progress', type: 'General Service', garage: 'Mumbai Workshop', priority: 'High', notes: 'Oil seals replaced.' },
-  { id: 'MTN-1002', vehicleId: 'VEH-101', description: 'Routine lube oil replacement', cost: 3500, startDate: '2026-07-05', endDate: '2026-07-05', status: 'Completed', type: 'Oil Change', garage: 'Delhi Auto Care', priority: 'Low', notes: 'Filters standard change.' },
+  { id: 'MTN-1001', vehicleId: 'VEH-103', description: 'Hydraulic leak checkup', cost: 12000, startDate: '2026-07-11', status: 'In Progress', type: 'General Service', garage: 'Patel Fleet Services', priority: 'High', notes: 'Oil seals replaced.' },
+  { id: 'MTN-1002', vehicleId: 'VEH-101', description: 'Routine lube oil replacement', cost: 3500, startDate: '2026-07-05', endDate: '2026-07-05', status: 'Completed', type: 'Oil Change', garage: 'Sai Transport Workshop', priority: 'Low', notes: 'Filters standard change.' },
 ];
 
 const initialFuelLogs: FuelLog[] = [
-  { id: 'FUEL-1001', vehicleId: 'VEH-101', liters: 25, cost: 2300, date: '2026-07-10' },
-  { id: 'FUEL-1002', vehicleId: 'VEH-102', liters: 75, cost: 6900, date: '2026-07-11' },
+  { id: 'FUEL-1001', vehicleId: 'VEH-101', liters: 25, cost: 2300, date: '2026-07-10', odometer: 45210, pricePerLiter: 92, station: 'HP Fuel Pump, Delhi', driverId: 'DRV-101', paymentMethod: 'UPI', notes: 'Tank full.' },
+  { id: 'FUEL-1002', vehicleId: 'VEH-102', liters: 75, cost: 6900, date: '2026-07-11', odometer: 189450, pricePerLiter: 92, station: 'Indian Oil, Mumbai', driverId: 'DRV-102', paymentMethod: 'Card', notes: 'Regular filling.' },
 ];
 
 const initialExpenses: Expense[] = [
-  { id: 'EXP-1001', vehicleId: 'VEH-101', type: 'Toll', amount: 350, date: '2026-07-10' },
-  { id: 'EXP-1002', vehicleId: 'VEH-102', type: 'Other', amount: 800, date: '2026-07-11' },
+  { id: 'EXP-1001', vehicleId: 'VEH-101', type: 'Toll', amount: 350, date: '2026-07-10', description: 'NH48 Toll Plaza', status: 'Approved', billAttached: true, billFileName: 'toll_receipt_nh48.pdf' },
+  { id: 'EXP-1002', vehicleId: 'VEH-102', type: 'Other', amount: 800, date: '2026-07-11', description: 'State Highway RTO Permit', status: 'Approved', billAttached: false },
 ];
 
 // LocalStorage Keys
@@ -158,4 +168,16 @@ export const isLicenseExpired = (expiryDateStr: string) => {
   const expiry = new Date(expiryDateStr);
   const currentDate = new Date('2026-07-12');
   return expiry < currentDate;
+};
+
+export const formatDateDMY = (dateStr: string): string => {
+  if (!dateStr) return '';
+  if (dateStr.includes('T')) {
+    const dateOnly = dateStr.split('T')[0];
+    const parts = dateOnly.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  const parts = dateStr.split('-');
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return dateStr;
 };

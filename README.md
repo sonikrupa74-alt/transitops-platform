@@ -1,66 +1,92 @@
 # TransitOps ERP
 
-A modern ERP platform for fleet and transportation management designed to streamline vehicle operations, driver management, trip scheduling, maintenance tracking, and business reporting.
+<p align="center">
+  <h3 align="center">Smart Fleet & Transportation Management System</h3>
+  <p align="center">
+    A modern ERP platform for managing fleet operations, vehicle dispatching, drivers, maintenance, fuel records, and operational analytics.
+  </p>
+</p>
+
+---
 
 ## Overview
 
-TransitOps ERP is a web-based transportation management system that provides a centralized platform for managing fleet operations. It enables organizations to efficiently monitor vehicles, drivers, trips, maintenance records, fuel logs, and operational analytics through an intuitive dashboard.
+TransitOps ERP is a centralized fleet management solution developed to simplify transportation operations. The platform provides an intuitive interface for managing vehicles, drivers, trips, maintenance schedules, fuel logs, and operational reports while maintaining real-time visibility across the organization.
 
-## Features
+Designed with a modern ERP interface and backed by a Flask + MySQL REST API, the application demonstrates how transportation companies can efficiently manage daily logistics from a single dashboard.
+
+---
+
+## Key Features
 
 ### Dashboard
-- Operational overview with real-time statistics
+- Operational overview with live statistics
 - Fleet utilization metrics
 - Active dispatch monitoring
-- Workshop and maintenance status
-- Compliance alerts
-- Activity logs
+- Compliance notifications
+- Workshop status
+- Activity timeline
 
 ### Vehicle Management
-- Vehicle registration and inventory
-- Vehicle status tracking
-- Capacity and odometer management
-- Vehicle assignment management
+- Vehicle registration
+- Capacity and odometer tracking
+- Vehicle availability monitoring
+- Assignment management
 - Search and filtering
 
 ### Driver Management
-- Driver records management
-- License tracking
-- Safety score monitoring
-- Driver availability status
-- Contact information management
+- Driver profiles
+- License management
+- Contact information
+- Safety score tracking
+- Availability status
 
 ### Trip Management
-- Trip scheduling and dispatch
-- Vehicle assignment
+- Trip scheduling
+- Vehicle allocation
 - Driver assignment
-- Route management
-- Cargo tracking
-- Trip status monitoring
+- Cargo information
+- Route planning
+- Dispatch status tracking
 
 ### Maintenance
 - Workshop ticket management
-- Vehicle maintenance records
-- Service scheduling
 - Maintenance history
+- Service scheduling
+- Vehicle repair tracking
 
 ### Fuel Logs
-- Fuel consumption records
+- Fuel usage records
 - Cost tracking
-- Mileage monitoring
-- Expense management
+- Mileage management
 
 ### Reports
 - Fleet analytics
 - Operational reports
-- Performance insights
-- Business statistics
+- Business insights
 
 ---
 
-## Tech Stack
+# System Architecture
 
-### Frontend
+```
+                React + TypeScript
+                        │
+                    Axios API
+                        │
+                Flask REST Backend
+                        │
+                    PyMySQL Driver
+                        │
+                  MySQL Database
+```
+
+---
+
+# Tech Stack
+
+## Frontend
+
 - React
 - TypeScript
 - Vite
@@ -68,49 +94,58 @@ TransitOps ERP is a web-based transportation management system that provides a c
 - Axios
 - CSS
 
-### Backend
+## Backend
+
 - Python
 - Flask
-- PyMySQL
 - REST API
+- PyMySQL
 
-### Database
+## Database
+
 - MySQL
 
 ---
 
-## Project Structure
+# Folder Structure
 
 ```
-transitops-platform/
+transitops-platform
 │
-├── backend/
+├── backend
 │   ├── app.py
 │   ├── config.py
 │   ├── database.py
 │   ├── schema.sql
 │   └── ...
 │
-├── frontend/
-│   ├── src/
-│   ├── public/
-│   └── ...
+├── frontend
+│   ├── public
+│   ├── src
+│   │   ├── components
+│   │   ├── pages
+│   │   ├── services
+│   │   ├── utils
+│   │   └── ...
+│   └── package.json
 │
 └── README.md
 ```
 
 ---
 
-## Installation
+# Installation
 
-### Clone the repository
+## Clone Repository
 
 ```bash
-git clone https://github.com/your-username/transitops-platform.git
+git clone https://github.com/sonikrupa74-alt/transitops-platform.git
 cd transitops-platform
 ```
 
-### Backend Setup
+---
+
+## Backend Setup
 
 ```bash
 cd backend
@@ -125,7 +160,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Backend runs on:
+Backend Server
 
 ```
 http://127.0.0.1:5000
@@ -133,7 +168,7 @@ http://127.0.0.1:5000
 
 ---
 
-### Frontend Setup
+## Frontend Setup
 
 ```bash
 cd frontend
@@ -143,7 +178,7 @@ npm install
 npm run dev
 ```
 
-Frontend runs on:
+Frontend Server
 
 ```
 http://localhost:3000
@@ -151,12 +186,12 @@ http://localhost:3000
 
 ---
 
-## Database Setup
+# Database Configuration
 
-1. Install MySQL.
+1. Install MySQL Server.
 2. Create a new database.
 3. Import the provided `schema.sql`.
-4. Update database credentials inside:
+4. Update your credentials inside:
 
 ```
 backend/config.py
@@ -166,9 +201,23 @@ backend/config.py
 
 ---
 
-## API
+# Application Modules
 
-The backend exposes REST APIs for:
+| Module | Description |
+|---------|-------------|
+| Dashboard | Fleet overview and operational insights |
+| Vehicles | Vehicle registration and tracking |
+| Drivers | Driver profile management |
+| Trips | Dispatch and trip management |
+| Maintenance | Vehicle servicing and workshop logs |
+| Fuel Logs | Fuel usage monitoring |
+| Reports | Operational analytics |
+
+---
+
+# REST API
+
+The backend provides RESTful endpoints for:
 
 - Authentication
 - Dashboard
@@ -181,38 +230,42 @@ The backend exposes REST APIs for:
 
 ---
 
-## Screens
+# Highlights
 
-- Dashboard
-- Vehicle Registry
-- Driver Management
-- Trip Management
-- Maintenance
-- Fuel Logs
-- Reports
+- Modern ERP Dashboard
+- Responsive User Interface
+- RESTful Backend
+- MySQL Integration
+- Modular Architecture
+- CRUD Operations
+- Fleet Analytics
+- Secure Login System
+- Search & Filtering
+- Scalable Codebase
 
 ---
 
-## Future Enhancements
+# Future Scope
 
+- Role-Based Access Control (RBAC)
 - JWT Authentication
-- Role-Based Access Control
-- Live GPS Tracking
-- Predictive Maintenance
+- GPS Vehicle Tracking
 - Route Optimization
+- Predictive Maintenance
 - Fuel Consumption Analytics
-- Notification System
-- Export Reports
-- Mobile Support
+- Email & SMS Notifications
+- Report Export (PDF/Excel)
+- Mobile Application
+- Cloud Deployment
 
 ---
 
-## Team
+# Team
 
-Developed as part of a Hackathon project.
+Developed as a Hackathon project to demonstrate a scalable Fleet & Transportation ERP platform using modern web technologies.
 
 ---
 
-## License
+# License
 
-This project is intended for educational and hackathon purposes.
+This project is developed for educational and hackathon purposes.
